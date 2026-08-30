@@ -311,6 +311,60 @@ if ! grep -qx 'CUSTOM AXEL' "$FIX/custom/.opencode/agent/axel.md"; then
 fi
 echo "✓ pre-existing unmarked axel.md kept (no persona-source exception)"
 
+echo "Testing quoted marker in a hand-written body does not clobber..."
+mkdir -p "$FIX/quote/.opencode/agent" "$FIX/quote/.agents/agents"
+# Pre-seed an unmarked axel.md that *quotes* the marker in its body.
+cat > "$FIX/quote/.opencode/agent/axel.md" << 'EOF'
+---
+description: hand-written
+mode: primary
+---
+Do not treat this quote as ownership:
+<!-- GENERATED from .agents/agents/axel-conductor-agent.md by harness-bootstrap — do not edit -->
+CUSTOM QUOTED
+EOF
+cat > "$FIX/quote/lockfile.toml" << 'EOF'
+skills = "v0-last-monolith"
+loops  = "v1-runtime-agents"
+EOF
+CROSSR_SKILLS_PATH="$FIX/skills" CROSSR_LOOPS_PATH="$FIX/loops" \
+    "$BOOTSTRAP" "$FIX/quote" > /dev/null
+if ! grep -q CUSTOM\ QUOTED "$FIX/quote/.opencode/agent/axel.md"; then
+    echo "✗ quoting the marker in a hand-written body caused overwrite"
+    exit 1
+fi
+echo "✓ quoted marker in body does not make a file machine-owned"
+
+echo "Testing orphan persona warning (copy_agents keep + pin rename)..."
+mkdir -p "$FIX/orphan/.agents/agents"
+cat > "$FIX/orphan/.agents/agents/rust-reviewer-agent.md" << 'EOF'
+# rust-reviewer-agent
+
+**Role**: Stale leftover from v0.
+
+Old reviewer voice.
+EOF
+cat > "$FIX/orphan/lockfile.toml" << 'EOF'
+skills = "v0-last-monolith"
+loops  = "v1-runtime-agents"
+EOF
+CROSSR_SKILLS_PATH="$FIX/skills" CROSSR_LOOPS_PATH="$FIX/loops" \
+    "$BOOTSTRAP" "$FIX/orphan" > "$FIX/orphan.log"
+if ! grep -q 'orphan persona rust-reviewer-agent.md' "$FIX/orphan.log"; then
+    echo "✗ missing orphan warning for rust-reviewer-agent.md"
+    cat "$FIX/orphan.log"
+    exit 1
+fi
+if [ ! -f "$FIX/orphan/.opencode/agent/rust-reviewer-agent.md" ]; then
+    echo "✗ orphan persona did not still generate an agent"
+    exit 1
+fi
+if [ ! -f "$FIX/orphan/.opencode/agent/reviewer-agent.md" ]; then
+    echo "✗ pin reviewer-agent.md was not also generated"
+    exit 1
+fi
+echo "✓ orphan warning fired; both stale and current reviewer agents exist"
+
 echo "Testing generator determinism..."
 "$GEN" "$FIX/loops/.agents/agents/axel-conductor-agent.md" > "$FIX/g1"
 "$GEN" "$FIX/loops/.agents/agents/axel-conductor-agent.md" > "$FIX/g2"

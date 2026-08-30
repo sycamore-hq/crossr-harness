@@ -177,8 +177,42 @@ copied_opencode_this_run() {
     return 1
 }
 
+# True only when the first non-empty line after YAML frontmatter is the
+# generated marker. Quoting the marker string later in a hand-written file
+# does not make the file machine-owned.
 has_generated_marker() {
-    grep -qF "by harness-bootstrap — do not edit -->" "$1"
+    python3 - "$1" <<'PY'
+import re, sys
+text = open(sys.argv[1], encoding="utf-8").read()
+body = text
+if text.startswith("---\n"):
+    rest = text[4:]
+    end = rest.find("\n---\n")
+    if end != -1:
+        body = rest[end + len("\n---\n"):]
+line = next((ln for ln in body.splitlines() if ln.strip()), "")
+sys.exit(0 if re.fullmatch(
+    r"<!-- GENERATED from \.agents/agents/\S+ by harness-bootstrap — do not edit -->",
+    line,
+) else 1)
+PY
+}
+
+# copy_agents never overwrites an existing persona. After a rename (e.g.
+# rust-reviewer-agent → reviewer-agent) a v0 checkout keeps the old file and
+# gains the new one; generation then emits both agents. Warn. Refreshing
+# personas on pin move is 2c — this tripwire only makes the window visible.
+warn_orphan_personas() {
+    local src_dir="$TARGET/.agents/agents"
+    [ -d "$src_dir" ] || return 0
+    local f base
+    while IFS= read -r f; do
+        [ -f "$f" ] || continue
+        base="$(basename "$f")"
+        if [ ! -f "$SKILLS_TREE/.agents/agents/$base" ] && [ ! -f "$LOOPS_TREE/.agents/agents/$base" ]; then
+            echo "  ! orphan persona $base (kept locally; no counterpart in current pins — still generates an agent)"
+        fi
+    done < <(find "$src_dir" -maxdepth 1 -type f -name '*-agent.md' | sort)
 }
 
 # Emit .opencode/agent/<mapped>.md from each $TARGET/.agents/agents/*-agent.md.
@@ -303,6 +337,7 @@ copy_skill_dirs "$LOOPS_TREE"
 copy_skill_dirs "$ROOT"
 copy_agents "$SKILLS_TREE"
 copy_agents "$LOOPS_TREE"
+warn_orphan_personas
 
 copy_opencode "$ROOT/templates/harness/opencode"
 copy_opencode "$LOOPS_TREE/templates/harness/opencode"
