@@ -22,6 +22,10 @@ loops  = "v0"
 
 `harness-bootstrap` reads the lockfile, clones those tags, copies catalog + loops + harness templates. `--process-only` is how this repo (and the other two products) consume the process without overlaying skill trees.
 
+## Graphs (split-09)
+
+JSON topology lives in `crossr-loops/graphs/` on `main`. Pin `loops = "v0"` does not include it. Bootstrap does not copy `graphs/`. A later loops tag is a named unit, not an accident.
+
 ## Copied (split-04)
 
 See the split-04 commit. Product source: spec, scripts, templates minus `/avril` `/axel`, `dashboard-prompt`, `chief-of-staff`, `features.schema.json`, bootstrap smoke.

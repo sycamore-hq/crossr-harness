@@ -17,6 +17,8 @@ git clone https://github.com/sycamore-hq/crossr-harness.git
 
 Copies catalog skills from the skills tag, loop conductors + personas + `/avril` `/axel` from the loops tag, and harness templates (`/status`, `HARNESS-SPEC.md`, dashboard). Never overwrites existing `.opencode/`. No git submodules.
 
+**Graphs (split-09)** live on [`crossr-loops` `main`](https://github.com/sycamore-hq/crossr-loops/tree/main/graphs), not in pin `v0`. Bootstrap does not copy `graphs/`. Topology only — SKILL.md stays the law.
+
 `--process-only` writes `AGENTS.md`, `features.json`, `progress.md`, `justfile`, `lockfile.toml` without copying skills (how the three product remotes consume this harness).
 
 ## Lockfile
