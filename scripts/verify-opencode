@@ -10,7 +10,8 @@
 #
 # Static checks always run (no opencode required):
 #   - .opencode layout exists and opencode.jsonc parses as JSON (comments stripped)
-#   - agent files declare description + mode: primary
+#   - agent files declare description + mode: primary or mode: subagent
+#   - generated agent files (marker present) round-trip from their persona source
 #   - command files declare description + agent: and use $ARGUMENTS
 #   - preflight blocks, when present, contain no write commands
 #
@@ -84,8 +85,8 @@ for path in sorted(glob.glob(".opencode/agent/*.md")):
         problems.append(f"{path}: no YAML frontmatter"); continue
     if not fields.get("description"):
         problems.append(f"{path}: no description")
-    if fields.get("mode") != "primary":
-        problems.append(f"{path}: mode is {fields.get('mode')!r}, expected 'primary'")
+    if fields.get("mode") not in ("primary", "subagent"):
+        problems.append(f"{path}: mode is {fields.get('mode')!r}, expected 'primary' or 'subagent'")
 
 for path in sorted(glob.glob(".opencode/command/*.md")):
     fields, body = frontmatter(path)
@@ -114,11 +115,54 @@ for p in problems:
 sys.exit(1 if problems else 0)
 PY
 if [[ $? -eq 0 ]]; then
-    pass "agent frontmatter: description + mode: primary"
+    pass "agent frontmatter: description + mode: primary|subagent"
     pass "command frontmatter: description + agent + \$ARGUMENTS"
     pass "command preflight blocks are read-only"
 else
     fail "agent/command frontmatter or preflight checks failed (see PROBLEM lines above)"
+fi
+
+echo ""
+echo "Checking generated agent round-trip..."
+
+GEN="$ROOT/scripts/generate-opencode-agent"
+if [[ ! -x "$GEN" ]]; then
+    fail "missing generator $GEN"
+else
+    MARKER_RE='<!-- GENERATED from \.agents/agents/([^ ]+) by harness-bootstrap — do not edit -->'
+    DRIFT=0
+    for f in .opencode/agent/*.md; do
+        [[ -f "$f" ]] || continue
+        src_name="$(python3 -c 'import re,sys
+m=re.search(sys.argv[1], open(sys.argv[2]).read())
+print(m.group(1) if m else "")' "$MARKER_RE" "$f")"
+        if [[ -z "$src_name" ]]; then
+            continue
+        fi
+        persona=".agents/agents/$src_name"
+        if [[ ! -f "$persona" ]]; then
+            fail "generated $f: missing persona source $persona"
+            DRIFT=1
+            continue
+        fi
+        expected="$(mktemp)"
+        if ! "$GEN" "$persona" > "$expected"; then
+            fail "generated $f: generator failed on $persona"
+            rm -f "$expected"
+            DRIFT=1
+            continue
+        fi
+        if cmp -s "$f" "$expected"; then
+            pass "generated $f round-trips from $persona"
+        else
+            fail "generated $f drifts from $persona"
+            DRIFT=1
+        fi
+        rm -f "$expected"
+    done
+    if [[ $DRIFT -eq 0 ]]; then
+        pass "no generated-agent drift"
+    fi
 fi
 
 echo ""
@@ -130,6 +174,10 @@ if [[ -d "$TEMPLATE_DIR" ]]; then
     # against the template, ignoring transient artifacts like node_modules/
     # (gitignored, installed by opencode at runtime).
     for rel in $( git ls-files .opencode | grep -E '\.(md|jsonc)$' | sed 's|^\.opencode/||' | sort ); do
+        if grep -qF "by harness-bootstrap — do not edit -->" ".opencode/$rel" 2>/dev/null; then
+            pass "skip template parity for generated .opencode/$rel"
+            continue
+        fi
         if [[ ! -f "$TEMPLATE_DIR/$rel" ]]; then
             fail "missing bootstrap template $TEMPLATE_DIR/$rel"
         elif diff -q ".opencode/$rel" "$TEMPLATE_DIR/$rel" >/dev/null 2>&1; then
@@ -164,10 +212,15 @@ else
 
     for f in .opencode/agent/*.md; do
         a="$(basename "$f" .md)"
-        if grep -qE "^$a \(primary\)" "$AGENTS_TXT"; then
-            pass "opencode discovers agent '$a' (primary)"
+        mode="$(python3 -c 'import re,sys
+text=open(sys.argv[1]).read()
+m=re.match(r"^---\n(.*?)\n---\n", text, re.S)
+fields=dict(re.findall(r"^([a-z_]+):[ \t]*(.*)$", m.group(1), re.M)) if m else {}
+print(fields.get("mode","primary"))' "$f")"
+        if grep -qE "^$a \($mode\)" "$AGENTS_TXT"; then
+            pass "opencode discovers agent '$a' ($mode)"
         else
-            fail "opencode does not discover agent '$a' as primary"
+            fail "opencode does not discover agent '$a' as $mode"
         fi
     done
 

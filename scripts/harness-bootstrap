@@ -15,7 +15,10 @@
 #   loops pin   → .agents/skills/ (overlay) + .agents/agents/ + /avril /axel
 #   this repo   → dashboard-prompt, chief-of-staff, /status, HARNESS-SPEC,
 #                 status-dashboard
-# Never overwrites existing .opencode/. No git submodules.
+# Then generates .opencode/agent/<name>.md from each $TARGET/.agents/agents/*.md
+# persona. Generated files carry a marker and are regenerated every run.
+# Never overwrites a .opencode/ file that lacks that marker (hand-written
+# avril.md / status.md stay put). No git submodules.
 #
 # --process-only: AGENTS.md, features.json, progress.md, justfile, lockfile.toml
 # only. Product-repo dogfood. Does not copy skills.
@@ -31,14 +34,14 @@ LOOPS_URL="${CROSSR_LOOPS_URL:-https://github.com/sycamore-hq/crossr-loops.git}"
 PROCESS_ONLY=false
 TARGET=""
 usage() {
-    sed -n '2,24p' "$0"
+    sed -n '2,26p' "$0"
 }
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --process-only) PROCESS_ONLY=true; shift ;;
         -h|--help)      usage; exit 0 ;;
-        --force)        echo "unknown flag: --force (never overwrites .opencode/; existing AGENTS/features/progress/justfile are kept)" >&2; exit 2 ;;
+        --force)        echo "unknown flag: --force (never overwrites unmarked .opencode/ files; generated agent files are regenerated; existing AGENTS/features/progress/justfile are kept)" >&2; exit 2 ;;
         -*)             echo "unknown flag: $1" >&2; exit 2 ;;
         *)              TARGET="$1"; shift ;;
     esac
@@ -143,6 +146,10 @@ copy_agents() {
     done
 }
 
+# Paths relative to $TARGET/.opencode/ that copy_opencode created this run.
+# Generation may replace these (they are template-sourced, unmarked).
+COPIED_OPENCODE_FILES=()
+
 copy_opencode() {
     local src="$1"
     [ -d "$src" ] || return 0
@@ -156,9 +163,50 @@ copy_opencode() {
             echo "  = kept existing .opencode/$rel"
         else
             cp "$src/$rel" "$dest"
+            COPIED_OPENCODE_FILES+=("$rel")
             echo "  + opencode $rel"
         fi
     done
+}
+
+copied_opencode_this_run() {
+    local rel="$1" c
+    for c in "${COPIED_OPENCODE_FILES[@]+"${COPIED_OPENCODE_FILES[@]}"}"; do
+        [ "$c" = "$rel" ] && return 0
+    done
+    return 1
+}
+
+has_generated_marker() {
+    grep -qF "by harness-bootstrap — do not edit -->" "$1"
+}
+
+# Emit .opencode/agent/<mapped>.md from each $TARGET/.agents/agents/*-agent.md.
+# Runs after copy_opencode so a generated file replaces the same-run template
+# copy. Pre-existing unmarked files are never touched.
+generate_opencode_agents() {
+    local src_dir="$TARGET/.agents/agents"
+    [ -d "$src_dir" ] || return 0
+    mkdir -p "$TARGET/.opencode/agent"
+    local gen="$ROOT/scripts/generate-opencode-agent"
+    if [ ! -x "$gen" ]; then
+        echo "Error: missing generator $gen" >&2
+        exit 1
+    fi
+    local f base agent dest rel
+    while IFS= read -r f; do
+        [ -f "$f" ] || continue
+        base="$(basename "$f")"
+        agent="$("$gen" --name "$f" 2>/dev/null)" || continue
+        dest="$TARGET/.opencode/agent/${agent}.md"
+        rel="agent/${agent}.md"
+        if [ -f "$dest" ] && ! has_generated_marker "$dest" && ! copied_opencode_this_run "$rel"; then
+            echo "  = kept hand-written .opencode/$rel"
+            continue
+        fi
+        "$gen" "$f" > "$dest"
+        echo "  + generated .opencode/$rel ← $base"
+    done < <(find "$src_dir" -maxdepth 1 -type f -name '*-agent.md' | sort)
 }
 
 # 1. Process files (always)
@@ -258,6 +306,7 @@ copy_agents "$LOOPS_TREE"
 
 copy_opencode "$ROOT/templates/harness/opencode"
 copy_opencode "$LOOPS_TREE/templates/harness/opencode"
+generate_opencode_agents
 
 if [ ! -f "$TARGET/HARNESS-SPEC.md" ] && [ -f "$ROOT/HARNESS-SPEC.md" ]; then
     cp "$ROOT/HARNESS-SPEC.md" "$TARGET/HARNESS-SPEC.md"
@@ -283,4 +332,4 @@ echo ""
 echo "✓ Harness installed in $TARGET"
 echo "  Pins: skills=${SKILLS_TAG} loops=${LOOPS_TAG}"
 echo "  Next: commit the scaffold, restart opencode, /avril /axel /status"
-echo "  Never overwrote existing .opencode/."
+echo "  Never overwrote unmarked .opencode/ files. Generated agents were regenerated."
