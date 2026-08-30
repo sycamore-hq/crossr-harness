@@ -1,9 +1,9 @@
 {
-  "phase0": {
+  "gan-layer-separation": {
     "status": "in_progress",
     "commits": [
       {
-        "id": "pr2b-generate-opencode-agents",
+        "id": "pr2b",
         "title": "bootstrap: generate .opencode/agent/ from persona sources",
         "status": "in_progress",
         "features": [
@@ -11,7 +11,9 @@
           "generated_marker",
           "unmarked_opencode_preserved",
           "marked_opencode_regenerated",
-          "verify_opencode_subagent_and_drift"
+          "verify_opencode_subagent_and_drift",
+          "orphan_persona_warning",
+          "marker_anchored_to_first_body_line"
         ]
       }
     ]

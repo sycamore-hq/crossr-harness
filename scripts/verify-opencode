@@ -134,7 +134,15 @@ else
     for f in .opencode/agent/*.md; do
         [[ -f "$f" ]] || continue
         src_name="$(python3 -c 'import re,sys
-m=re.search(sys.argv[1], open(sys.argv[2]).read())
+text=open(sys.argv[2], encoding="utf-8").read()
+body=text
+if text.startswith("---\n"):
+    rest=text[4:]
+    end=rest.find("\n---\n")
+    if end!=-1:
+        body=rest[end+len("\n---\n"):]
+line=next((ln for ln in body.splitlines() if ln.strip()), "")
+m=re.fullmatch(sys.argv[1], line)
 print(m.group(1) if m else "")' "$MARKER_RE" "$f")"
         if [[ -z "$src_name" ]]; then
             continue
@@ -174,7 +182,22 @@ if [[ -d "$TEMPLATE_DIR" ]]; then
     # against the template, ignoring transient artifacts like node_modules/
     # (gitignored, installed by opencode at runtime).
     for rel in $( git ls-files .opencode | grep -E '\.(md|jsonc)$' | sed 's|^\.opencode/||' | sort ); do
-        if grep -qF "by harness-bootstrap — do not edit -->" ".opencode/$rel" 2>/dev/null; then
+        if python3 - ".opencode/$rel" <<'PY'
+import re, sys
+text = open(sys.argv[1], encoding="utf-8").read()
+body = text
+if text.startswith("---\n"):
+    rest = text[4:]
+    end = rest.find("\n---\n")
+    if end != -1:
+        body = rest[end + len("\n---\n"):]
+line = next((ln for ln in body.splitlines() if ln.strip()), "")
+sys.exit(0 if re.fullmatch(
+    r"<!-- GENERATED from \.agents/agents/\S+ by harness-bootstrap — do not edit -->",
+    line,
+) else 1)
+PY
+        then
             pass "skip template parity for generated .opencode/$rel"
             continue
         fi
