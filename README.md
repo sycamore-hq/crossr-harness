@@ -15,7 +15,7 @@ git clone https://github.com/sycamore-hq/crossr-harness.git
 ./crossr-harness/scripts/harness-bootstrap /path/to/your-project
 ```
 
-Copies catalog skills from the skills tag, loop conductors + personas + `/avril` `/axel` from the loops tag, and harness templates (`/status`, `HARNESS-SPEC.md`, dashboard). Never overwrites existing `.opencode/`. No git submodules.
+Copies catalog skills from the skills tag, loop conductors + personas + `/avril` `/axel` from the loops tag, and harness templates (`/status`, `HARNESS-SPEC.md`, dashboard). Then generates `.opencode/agent/` from `.agents/agents/` personas. Never overwrites a `.opencode/` file that lacks the generated marker; marked files are regenerated every run. No git submodules.
 
 **Graphs (split-09)** live on [`crossr-loops` `main`](https://github.com/sycamore-hq/crossr-loops/tree/main/graphs), not in pin `v0`. Bootstrap does not copy `graphs/`. Topology only — SKILL.md stays the law.
 
@@ -35,7 +35,7 @@ loops  = "v0"
 ## What's here (product source)
 
 - `HARNESS-SPEC.md` — artifact, ritual, PETC, verification. §12 points at loops; it does not define AVRIL/AXEL.
-- `scripts/harness-bootstrap`, `sync-skills`, `status-dashboard`, `verify-docs`, `verify-opencode`
+- `scripts/harness-bootstrap`, `generate-opencode-agent`, `sync-skills`, `status-dashboard`, `verify-docs`, `verify-opencode`
 - `templates/harness/` — AGENTS/features templates, `/status` OpenCode bodies, `opencode.jsonc` skeleton
 - `dashboard-prompt`, `chief-of-staff`
 - `features.schema.json`, `test/harness-bootstrap-smoke.sh`

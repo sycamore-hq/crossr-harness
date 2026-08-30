@@ -228,7 +228,7 @@ skills = "<tag>"
 loops  = "<tag>"
 ```
 
-Bootstrap copies catalog skills from the skills tag, loop conductors + personas + `/avril` `/axel` from the loops tag, and harness templates from this remote. Never overwrites existing `.opencode/`. No git submodules. `--process-only` writes tracking files without copying skills (product-repo dogfood).
+Bootstrap copies catalog skills from the skills tag, loop conductors + personas + `/avril` `/axel` from the loops tag, and harness templates from this remote, then generates `.opencode/agent/` from the copied personas. Never overwrites a `.opencode/` file that lacks the generated marker; marked files are regenerated every run. No git submodules. `--process-only` writes tracking files without copying skills (product-repo dogfood).
 
 After the first commit of the empty harness, all future work is tracked inside it.
 

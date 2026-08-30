@@ -1,0 +1,153 @@
+#!/usr/bin/env python3
+"""Emit one OpenCode agent file from a persona source.
+
+Usage:
+  generate-opencode-agent <persona.md>          # write generated file to stdout
+  generate-opencode-agent --name <persona.md>   # print mapped agent name only
+
+Name mapping (from the persona filename):
+  <role>-conductor-agent.md  →  <role>
+  every other <x>-agent.md   →  <x>-agent   (unchanged)
+
+Only `*-agent.md` files are personas. Other markdown (e.g. README.md) is rejected.
+
+Frontmatter:
+  If the persona begins with a --- YAML block, that block is passed through
+  and replaces the role defaults.
+  Otherwise conductor personas get mode: primary plus the conductor permission
+  block; every other persona gets mode: subagent with read-only permissions.
+  When using defaults, `description` is taken from the persona's **Role**: line
+  (the source text — the generator invents no prose). If no Role line exists,
+  the mapped agent name is used.
+
+Body is the persona body, verbatim. After the closing --- the generator inserts
+exactly one marker line and then the body. No timestamps. No other prose.
+"""
+from __future__ import annotations
+
+import os
+import re
+import sys
+
+MARKER_FMT = (
+    "<!-- GENERATED from .agents/agents/{name} by harness-bootstrap — do not edit -->"
+)
+
+CONDUCTOR_PERMISSION = """permission:
+  edit: ask
+  task: allow
+  bash:
+    "git status*": allow
+    "git log*": allow
+    "git diff*": allow
+    "git branch*": allow
+    "git rev-parse*": allow
+    "just *": allow
+    "pinto list*": allow
+    "pinto show*": allow
+    "pinto next*": allow
+    "pinto board*": allow
+    "pinto dod*": allow
+    "*": ask
+"""
+
+SUBAGENT_PERMISSION = """permission:
+  edit: deny
+  bash:
+    "*": ask
+"""
+
+ROLE_RE = re.compile(r"^\*\*Role\*\*\s*:\s*(.+?)\s*$", re.M)
+
+
+def die(msg: str) -> None:
+    print(msg, file=sys.stderr)
+    sys.exit(1)
+
+
+def is_persona(filename: str) -> bool:
+    return filename.endswith("-agent.md")
+
+
+def is_conductor(filename: str) -> bool:
+    return filename.endswith("-conductor-agent.md")
+
+
+def agent_name(filename: str) -> str:
+    stem = filename[: -len(".md")]
+    suffix = "-conductor-agent"
+    if stem.endswith(suffix):
+        return stem[: -len(suffix)]
+    return stem
+
+
+def yaml_quote(value: str) -> str:
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _with_trailing_nl(interior: str) -> str:
+    if interior and not interior.endswith("\n"):
+        return interior + "\n"
+    return interior
+
+
+def split_frontmatter(text: str) -> tuple[str | None, str]:
+    """Return (raw yaml interior or None, body). Interior keeps its trailing newline."""
+    if not text.startswith("---\n"):
+        return None, text
+    rest = text[4:]
+    if rest.startswith("---\n"):
+        return "", rest[4:]
+    if rest == "---":
+        return "", ""
+    end = rest.find("\n---\n")
+    if end != -1:
+        return _with_trailing_nl(rest[:end]), rest[end + len("\n---\n") :]
+    if rest.endswith("\n---"):
+        return _with_trailing_nl(rest[: -len("\n---")]), ""
+    return None, text
+
+
+def role_description(body: str, fallback: str) -> str:
+    m = ROLE_RE.search(body)
+    if m:
+        return m.group(1)
+    return fallback
+
+
+def default_frontmatter(filename: str, body: str) -> str:
+    mapped = agent_name(filename)
+    desc = role_description(body, mapped)
+    mode = "primary" if is_conductor(filename) else "subagent"
+    perm = CONDUCTOR_PERMISSION if is_conductor(filename) else SUBAGENT_PERMISSION
+    return f"description: {yaml_quote(desc)}\nmode: {mode}\n{perm}"
+
+
+def generate(persona_path: str) -> str:
+    filename = os.path.basename(persona_path)
+    if not is_persona(filename):
+        die(f"not a persona file: {filename}")
+    with open(persona_path, encoding="utf-8") as fh:
+        raw = fh.read()
+    override, body = split_frontmatter(raw)
+    front = override if override is not None else default_frontmatter(filename, body)
+    if front and not front.endswith("\n"):
+        front += "\n"
+    marker = MARKER_FMT.format(name=filename)
+    return f"---\n{front}---\n{marker}\n{body}"
+
+
+def main(argv: list[str]) -> None:
+    if len(argv) == 3 and argv[1] == "--name":
+        filename = os.path.basename(argv[2])
+        if not is_persona(filename):
+            die(f"not a persona file: {filename}")
+        print(agent_name(filename))
+        return
+    if len(argv) != 2 or argv[1].startswith("-"):
+        die("usage: generate-opencode-agent [--name] <persona.md>")
+    sys.stdout.write(generate(argv[1]))
+
+
+if __name__ == "__main__":
+    main(sys.argv)

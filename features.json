@@ -1,6 +1,19 @@
 {
   "phase0": {
     "status": "in_progress",
-    "commits": []
+    "commits": [
+      {
+        "id": "pr2b-generate-opencode-agents",
+        "title": "bootstrap: generate .opencode/agent/ from persona sources",
+        "status": "in_progress",
+        "features": [
+          "generate_opencode_agents",
+          "generated_marker",
+          "unmarked_opencode_preserved",
+          "marked_opencode_regenerated",
+          "verify_opencode_subagent_and_drift"
+        ]
+      }
+    ]
   }
 }
