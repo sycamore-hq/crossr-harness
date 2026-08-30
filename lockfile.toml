@@ -1,6 +1,5 @@
 # Pins consumed by harness-bootstrap / sync-skills.
 # Not a third tracker — features.json remains the work log. No git submodules.
-# skills = last tagged monolith (dual-publish). loops = first published loops pin.
 
 skills = "v0-last-monolith"
 loops  = "v0"

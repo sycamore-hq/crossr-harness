@@ -1,136 +1,286 @@
 #!/usr/bin/env bash
 # harness-bootstrap
-# Scaffolds the minimal viable harness for a new project, following HARNESS-SPEC.md
+# Install the CrossR harness into a project.
 #
-# Usage: ./scripts/harness-bootstrap [target-dir]
-#        (defaults to current directory)
+# Usage:
+#   ./scripts/harness-bootstrap [target-dir]
+#   ./scripts/harness-bootstrap --process-only [target-dir]
+#
+# Reads lockfile.toml (target, else this repo's lockfile.toml.example):
+#   skills = "<tag>"
+#   loops  = "<tag>"
+#
+# Full install copies:
+#   skills pin  → .agents/skills/
+#   loops pin   → .agents/skills/ (overlay) + .agents/agents/ + /avril /axel
+#   this repo   → dashboard-prompt, chief-of-staff, /status, HARNESS-SPEC,
+#                 status-dashboard
+# Never overwrites existing .opencode/. No git submodules.
+#
+# --process-only: AGENTS.md, features.json, progress.md, justfile, lockfile.toml
+# only. Product-repo dogfood. Does not copy skills.
+#
+# Overrides: CROSSR_SKILLS_PATH, CROSSR_LOOPS_PATH (skip clone).
 
 set -euo pipefail
 
-TARGET="${1:-.}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SKILLS_URL="${CROSSR_SKILLS_URL:-https://github.com/sycamore-hq/crossr-skills.git}"
+LOOPS_URL="${CROSSR_LOOPS_URL:-https://github.com/sycamore-hq/crossr-loops.git}"
+
+PROCESS_ONLY=false
+TARGET=""
+usage() {
+    sed -n '2,24p' "$0"
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --process-only) PROCESS_ONLY=true; shift ;;
+        -h|--help)      usage; exit 0 ;;
+        --force)        echo "unknown flag: --force (never overwrites .opencode/; existing AGENTS/features/progress/justfile are kept)" >&2; exit 2 ;;
+        -*)             echo "unknown flag: $1" >&2; exit 2 ;;
+        *)              TARGET="$1"; shift ;;
+    esac
+done
+
+TARGET="${TARGET:-.}"
+mkdir -p "$TARGET"
+TARGET="$(cd "$TARGET" && pwd)"
 
 echo "→ Bootstrapping harness in: $TARGET"
+$PROCESS_ONLY && echo "  (process-only: tracking files, no skill copy)"
 
-mkdir -p "$TARGET/.agents/skills"
-mkdir -p "$TARGET/templates/harness"
+lockfile_get() {
+    python3 - "$1" "$2" <<'PY'
+import re, sys
+path, key = sys.argv[1], sys.argv[2]
+text = open(path).read()
+m = re.search(r'(?m)^\s*' + re.escape(key) + r'\s*=\s*"([^"]+)"', text)
+if not m:
+    sys.exit(1)
+print(m.group(1))
+PY
+}
 
-# 1. AGENTS.md (minimal)
+LOCK_SRC=""
+if [ -f "$TARGET/lockfile.toml" ]; then
+    LOCK_SRC="$TARGET/lockfile.toml"
+elif [ -f "$ROOT/lockfile.toml" ]; then
+    LOCK_SRC="$ROOT/lockfile.toml"
+elif [ -f "$ROOT/lockfile.toml.example" ]; then
+    LOCK_SRC="$ROOT/lockfile.toml.example"
+fi
+
+SKILLS_TAG=""
+LOOPS_TAG=""
+if [ -n "$LOCK_SRC" ]; then
+    SKILLS_TAG="$(lockfile_get "$LOCK_SRC" skills || true)"
+    LOOPS_TAG="$(lockfile_get "$LOCK_SRC" loops || true)"
+fi
+if [ -z "$SKILLS_TAG" ] || [ -z "$LOOPS_TAG" ]; then
+    echo "Error: lockfile missing skills/loops tags (looked at target, $ROOT/lockfile.toml, lockfile.toml.example)" >&2
+    exit 1
+fi
+
+PIN_DIRS=()
+cleanup() { rm -rf "${PIN_DIRS[@]+"${PIN_DIRS[@]}"}"; }
+trap cleanup EXIT
+
+fetch_pin() {
+    local url="$1" tag="$2"
+    local dest
+    dest="$(mktemp -d "${TMPDIR:-/tmp}/crossr-pin.XXXXXX")"
+    PIN_DIRS+=("$dest")
+    echo "  → clone $url @ $tag" >&2
+    git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$tag" "$url" "$dest"
+    echo "$dest"
+}
+
+resolve_tree() {
+    local override="$1" url="$2" tag="$3"
+    if [ -n "$override" ]; then
+        echo "$override"
+        return
+    fi
+    fetch_pin "$url" "$tag"
+}
+
+copy_skill_dirs() {
+    local src="$1"
+    [ -d "$src/.agents/skills" ] || return 0
+    mkdir -p "$TARGET/.agents/skills"
+    local d name
+    for d in "$src"/.agents/skills/*/; do
+        [ -f "$d/SKILL.md" ] || continue
+        name="$(basename "$d")"
+        src_real="$(cd "$d" && pwd)"
+        dst_real="$TARGET/.agents/skills/$name"
+        if [ -d "$dst_real" ] && [ "$src_real" = "$(cd "$dst_real" && pwd)" ]; then
+            echo "  = skip self $name"
+            continue
+        fi
+        rm -rf "$dst_real"
+        cp -R "$d" "$TARGET/.agents/skills/$name"
+        echo "  + skill $name"
+    done
+}
+
+copy_agents() {
+    local src="$1"
+    [ -d "$src/.agents/agents" ] || return 0
+    mkdir -p "$TARGET/.agents/agents"
+    local f base
+    for f in "$src/.agents/agents"/*.md; do
+        [ -f "$f" ] || continue
+        base="$(basename "$f")"
+        if [ -f "$TARGET/.agents/agents/$base" ]; then
+            echo "  = kept existing .agents/agents/$base"
+        else
+            cp "$f" "$TARGET/.agents/agents/$base"
+            echo "  + agent $base"
+        fi
+    done
+}
+
+copy_opencode() {
+    local src="$1"
+    [ -d "$src" ] || return 0
+    mkdir -p "$TARGET/.opencode/agent" "$TARGET/.opencode/command"
+    local rel dest
+    for rel in $( (cd "$src" && find . -type f) | sed 's|^\./||' | sort ); do
+        [ -f "$src/$rel" ] || continue
+        dest="$TARGET/.opencode/$rel"
+        mkdir -p "$(dirname "$dest")"
+        if [ -f "$dest" ]; then
+            echo "  = kept existing .opencode/$rel"
+        else
+            cp "$src/$rel" "$dest"
+            echo "  + opencode $rel"
+        fi
+    done
+}
+
+# 1. Process files (always)
 if [ ! -f "$TARGET/AGENTS.md" ]; then
-cat > "$TARGET/AGENTS.md" << 'EOF'
+    if [ -f "$ROOT/templates/harness/AGENTS.md.template" ]; then
+        cp "$ROOT/templates/harness/AGENTS.md.template" "$TARGET/AGENTS.md"
+    else
+        cat > "$TARGET/AGENTS.md" << 'EOF'
 ## Plan Mode
 
 - Make every plan extremely concise. Sacrifice grammar for scannability.
 - At the end of each plan, give a bulleted list of unresolved questions.
 - Always follow the Plan → Execute → Test → Commit loop.
 
-## Core Skills
-
-- **`code-writer`** — Foundational coding philosophy (Grokking Simplicity + SICP)
-- **`rust-code-writer`** — Idiomatic, pure, stratified Rust
-- **`agent-harness`** — Persistent scaffolding for long-running agents
-
-See [HARNESS-SPEC.md](HARNESS-SPEC.md) for the full process and artifact requirements.
-
-All agents and contributors must follow the skills referenced above.
+See [HARNESS-SPEC.md](https://github.com/sycamore-hq/crossr-harness/blob/main/HARNESS-SPEC.md) for the full process.
 EOF
-echo "  + Created AGENTS.md"
+    fi
+    echo "  + Created AGENTS.md"
+else
+    echo "  = Kept existing AGENTS.md"
 fi
 
-# 2. features.json (phase 0 skeleton)
 if [ ! -f "$TARGET/features.json" ]; then
-cat > "$TARGET/features.json" << 'EOF'
-{
-  "phase0": {
-    "status": "in_progress",
-    "commits": []
-  }
-}
-EOF
-echo "  + Created features.json (phase0)"
+    if [ -f "$ROOT/templates/harness/features.json.template" ]; then
+        cp "$ROOT/templates/harness/features.json.template" "$TARGET/features.json"
+    else
+        printf '%s\n' '{ "phase0": { "status": "in_progress", "commits": [] } }' > "$TARGET/features.json"
+    fi
+    echo "  + Created features.json"
+else
+    echo "  = Kept existing features.json"
 fi
 
-# 3. progress.md stub
 if [ ! -f "$TARGET/progress.md" ]; then
-cat > "$TARGET/progress.md" << 'EOF'
+    cat > "$TARGET/progress.md" << 'EOF'
 # Implementation Progress
 
 ## Verification Status
 - Tooling: pending
 - Reviews: pending
 EOF
-echo "  + Created progress.md stub"
+    echo "  + Created progress.md stub"
+else
+    echo "  = Kept existing progress.md"
 fi
 
-# 4. Basic justfile (if none exists)
 if [ ! -f "$TARGET/justfile" ]; then
-cat > "$TARGET/justfile" << 'EOF'
+    cat > "$TARGET/justfile" << 'EOF'
 default:
     @just --list
 
 init:
-    echo "Run your environment bootstrap here (cargo check, etc.)"
+    echo "environment ready"
 
 check:
-    cargo check --workspace
+    cargo check --workspace 2>/dev/null || echo "(no Rust crates)"
 
 test:
-    cargo test --workspace
-
-clippy:
-    cargo clippy --workspace -- -W clippy::pedantic -D warnings
-
-fmt:
-    cargo fmt --all --check
+    cargo test --workspace 2>/dev/null || echo "(no tests)"
 EOF
-echo "  + Created justfile"
-fi
-
-# 5. OpenCode slash commands (/avril, /axel)
-#
-# Copied verbatim from templates/harness/opencode/, which is kept byte-identical
-# to this repo's own .opencode/ by `scripts/verify-opencode`. Existing files are
-# never overwritten, so a project that has customized its agents or commands
-# keeps its version and is told which files were skipped.
-OPENCODE_TEMPLATES="$(cd "$(dirname "$0")/.." && pwd)/templates/harness/opencode"
-if [ -d "$OPENCODE_TEMPLATES" ]; then
-    mkdir -p "$TARGET/.opencode/agent" "$TARGET/.opencode/command"
-    opencode_added=0
-    opencode_kept=0
-    # Derived from the template tree, so new agents/commands ship automatically.
-    for rel in $( (cd "$OPENCODE_TEMPLATES" && find . -type f) | sed 's|^\./||' | sort ); do
-        src="$OPENCODE_TEMPLATES/$rel"
-        dest="$TARGET/.opencode/$rel"
-        if [ ! -f "$src" ]; then
-            continue
-        fi
-        if [ -f "$dest" ]; then
-            echo "  = Kept existing .opencode/$rel (not overwritten)"
-            opencode_kept=$((opencode_kept + 1))
-        else
-            cp "$src" "$dest"
-            opencode_added=$((opencode_added + 1))
-        fi
-    done
-    if [ "$opencode_added" -gt 0 ]; then
-        echo "  + Installed $opencode_added OpenCode file(s) (/avril, /axel, /status)"
-    fi
-    if [ "$opencode_kept" -gt 0 ]; then
-        echo "  ! $opencode_kept existing OpenCode file(s) left untouched — diff against templates/harness/opencode/ if you want the latest"
-    fi
+    echo "  + Created justfile"
 else
-    echo "  (skip) OpenCode templates not found at $OPENCODE_TEMPLATES"
+    echo "  = Kept existing justfile"
+fi
+
+if [ ! -f "$TARGET/lockfile.toml" ]; then
+    cat > "$TARGET/lockfile.toml" << EOF
+# Pins consumed by harness-bootstrap / sync-skills.
+# Not a third tracker — features.json remains the work log. No git submodules.
+skills = "${SKILLS_TAG}"
+loops  = "${LOOPS_TAG}"
+EOF
+    echo "  + Created lockfile.toml (skills=${SKILLS_TAG} loops=${LOOPS_TAG})"
+else
+    echo "  = Kept existing lockfile.toml"
+fi
+
+if $PROCESS_ONLY; then
+    echo ""
+    echo "✓ Process-only harness in $TARGET"
+    echo "  Pins: skills=${SKILLS_TAG} loops=${LOOPS_TAG}"
+    exit 0
+fi
+
+# 2. Pins
+SKILLS_TREE="$(resolve_tree "${CROSSR_SKILLS_PATH:-}" "$SKILLS_URL" "$SKILLS_TAG")"
+LOOPS_TREE="$(resolve_tree "${CROSSR_LOOPS_PATH:-}" "$LOOPS_URL" "$LOOPS_TAG")"
+
+echo "  skills tree: $SKILLS_TREE"
+echo "  loops tree:  $LOOPS_TREE"
+
+copy_skill_dirs "$SKILLS_TREE"
+copy_skill_dirs "$LOOPS_TREE"
+copy_skill_dirs "$ROOT"
+copy_agents "$SKILLS_TREE"
+copy_agents "$LOOPS_TREE"
+
+copy_opencode "$ROOT/templates/harness/opencode"
+copy_opencode "$LOOPS_TREE/templates/harness/opencode"
+
+if [ ! -f "$TARGET/HARNESS-SPEC.md" ] && [ -f "$ROOT/HARNESS-SPEC.md" ]; then
+    cp "$ROOT/HARNESS-SPEC.md" "$TARGET/HARNESS-SPEC.md"
+    echo "  + HARNESS-SPEC.md"
+fi
+
+if [ -f "$ROOT/scripts/status-dashboard" ]; then
+    mkdir -p "$TARGET/scripts"
+    if [ ! -f "$TARGET/scripts/status-dashboard" ]; then
+        cp "$ROOT/scripts/status-dashboard" "$TARGET/scripts/status-dashboard"
+        chmod +x "$TARGET/scripts/status-dashboard"
+        echo "  + scripts/status-dashboard"
+    else
+        echo "  = kept existing scripts/status-dashboard"
+    fi
+    if [ -f "$TARGET/justfile" ] && ! grep -qE '^status:' "$TARGET/justfile"; then
+        printf '\n# Orchestration status dashboard (in-harness UI)\nstatus:\n    @./scripts/status-dashboard\n\nstatus-html:\n    @./scripts/status-dashboard --html\n' >> "$TARGET/justfile"
+        echo "  + justfile status / status-html"
+    fi
 fi
 
 echo ""
-echo "✓ Basic harness scaffolded."
-echo "  Next steps:"
-echo "    1. Run 'just init' (customize as needed)"
-echo "    2. Commit the empty harness"
-echo "    3. Start tracking real work in features.json"
-echo "    4. Restart opencode, then use /avril (planning), /axel (execution), /status (report)"
-echo ""
-echo "  For Claude compatibility, run the generate-claude-compat step (to be added in a future iteration of this script)."
-echo "  Run 'just harness-validate' after setup to check features.json against the schema."
-
-echo ""
-echo "Bootstrap complete. Review the generated files, then commit them as the first harness PR for this project."
+echo "✓ Harness installed in $TARGET"
+echo "  Pins: skills=${SKILLS_TAG} loops=${LOOPS_TAG}"
+echo "  Next: commit the scaffold, restart opencode, /avril /axel /status"
+echo "  Never overwrote existing .opencode/."

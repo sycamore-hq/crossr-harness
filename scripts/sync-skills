@@ -20,23 +20,6 @@
 
 set -euo pipefail
 
-if [ $# -eq 0 ]; then
-    cat <<EOF
-Usage: $0 /path/to/crossr-skills
-
-This script helps copy the canonical skills from a local crossr-skills checkout
-into your project's .agents/skills/ directory.
-
-Recommended workflow:
-1. Clone crossr-skills somewhere (e.g. ~/src/crossr-skills)
-2. Run: ./scripts/sync-skills ~/src/crossr-skills
-3. Review the diff and commit the updated skills
-
-You can also set CROSSR_SKILLS_PATH as an environment variable.
-EOF
-    exit 0
-fi
-
 DRY_RUN=false
 WITH_OPENCODE=false
 WITH_DASHBOARD=false
@@ -45,6 +28,29 @@ SOURCE=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
+        -h|--help)
+            cat <<EOF
+Usage: $0 [/path/to/crossr-skills]
+
+Copy canonical skills into this project's .agents/skills/.
+
+If no path is given, reads lockfile.toml (skills = "<tag>") and clones
+sycamore-hq/crossr-skills at that tag. CROSSR_SKILLS_PATH overrides.
+
+Recommended:
+  ./scripts/sync-skills                  # from lockfile pin
+  ./scripts/sync-skills /path/to/checkout
+  CROSSR_SKILLS_PATH=~/src/crossr-skills ./scripts/sync-skills
+
+Options:
+  --dry-run       show what would change, write nothing
+  --dest DIR      destination (default: .agents/skills)
+  --opencode      also install .opencode/ from the source tree,
+                  never overwriting files that already exist
+  --dashboard     also install scripts/status-dashboard
+EOF
+            exit 0
+            ;;
         --dry-run)  DRY_RUN=true; shift ;;
         --opencode) WITH_OPENCODE=true; shift ;;
         --dashboard) WITH_DASHBOARD=true; shift ;;
@@ -57,7 +63,35 @@ done
 SOURCE="${SOURCE:-${CROSSR_SKILLS_PATH:-}}"
 
 if [ -z "$SOURCE" ]; then
-    echo "Error: No crossr-skills path provided."
+    lock=""
+    if [ -f lockfile.toml ]; then
+        lock=lockfile.toml
+    elif [ -f "$(cd "$(dirname "$0")/.." && pwd)/lockfile.toml" ]; then
+        lock="$(cd "$(dirname "$0")/.." && pwd)/lockfile.toml"
+    elif [ -f "$(cd "$(dirname "$0")/.." && pwd)/lockfile.toml.example" ]; then
+        lock="$(cd "$(dirname "$0")/.." && pwd)/lockfile.toml.example"
+    fi
+    if [ -n "$lock" ]; then
+        tag="$(python3 - "$lock" <<'PY'
+import re, sys
+text = open(sys.argv[1]).read()
+m = re.search(r'(?m)^\s*skills\s*=\s*"([^"]+)"', text)
+sys.exit(1) if not m else print(m.group(1))
+PY
+)" || true
+        if [ -n "${tag:-}" ]; then
+            SOURCE="$(mktemp -d "${TMPDIR:-/tmp}/crossr-skills-pin.XXXXXX")"
+            trap 'rm -rf "$SOURCE"' EXIT
+            echo "→ cloning sycamore-hq/crossr-skills @ $tag"
+            git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$tag" \
+                "${CROSSR_SKILLS_URL:-https://github.com/sycamore-hq/crossr-skills.git}" \
+                "$SOURCE"
+        fi
+    fi
+fi
+
+if [ -z "$SOURCE" ]; then
+    echo "Error: No crossr-skills path or lockfile skills pin."
     exit 1
 fi
 

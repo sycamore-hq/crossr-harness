@@ -4,11 +4,33 @@ The CrossR project harness: `HARNESS-SPEC.md`, `harness-bootstrap`, the status d
 
 It installs pinned tags of [`crossr-skills`](https://github.com/sycamore-hq/crossr-skills) and [`crossr-loops`](https://github.com/sycamore-hq/crossr-loops). It does not own skill text or loop law.
 
-**Extract in progress (split-04).** Tree copied from `sycamore-hq/crossr-skills`. Catalog still ships these files until dual-publish. See [MIGRATION.md](MIGRATION.md).
+**Dogfood is live (split-08).** Pins: `skills = "v0-last-monolith"`, `loops = "v0"`. See [lockfile.toml](lockfile.toml).
 
 Charter: [`skills-loops-harness-split.html`](https://github.com/sycamore-hq/crossr-skills/blob/main/docs/plans/skills-loops-harness-split.html).
 
-## What's here
+## New project
+
+```bash
+git clone https://github.com/sycamore-hq/crossr-harness.git
+./crossr-harness/scripts/harness-bootstrap /path/to/your-project
+```
+
+Copies catalog skills from the skills tag, loop conductors + personas + `/avril` `/axel` from the loops tag, and harness templates (`/status`, `HARNESS-SPEC.md`, dashboard). Never overwrites existing `.opencode/`. No git submodules.
+
+`--process-only` writes `AGENTS.md`, `features.json`, `progress.md`, `justfile`, `lockfile.toml` without copying skills (how the three product remotes consume this harness).
+
+## Lockfile
+
+Not a third tracker. `features.json` remains the work log.
+
+```
+skills = "v0-last-monolith"
+loops  = "v0"
+```
+
+`sync-skills` with no path clones the skills pin. `CROSSR_SKILLS_PATH` / `CROSSR_LOOPS_PATH` skip the clone.
+
+## What's here (product source)
 
 - `HARNESS-SPEC.md` — artifact, ritual, PETC, verification. §12 points at loops; it does not define AVRIL/AXEL.
 - `scripts/harness-bootstrap`, `sync-skills`, `status-dashboard`, `verify-docs`, `verify-opencode`
@@ -16,34 +38,11 @@ Charter: [`skills-loops-harness-split.html`](https://github.com/sycamore-hq/cros
 - `dashboard-prompt`, `chief-of-staff`
 - `features.schema.json`, `test/harness-bootstrap-smoke.sh`
 
-## Lockfile shape
-
-Not a third tracker. `features.json` remains the work log. After first tags:
-
-```
-skills = <tag>
-loops  = <tag>
-```
-
-See `lockfile.toml.example`. Bootstrap will read this once tags exist (split-08). No git submodules.
-
-`sync-skills` later grows the same two pins. Today it still copies from a local tree.
+Consumer tracking files (`AGENTS.md`, `features.json`, `progress.md`, `justfile`) are a dogfood instance, not the product source.
 
 ## OpenCode prompt bodies
 
-`/status` lives here. `/avril` and `/axel` bodies live in [`crossr-loops`](https://github.com/sycamore-hq/crossr-loops) (`templates/harness/opencode/{agent,command}/{avril,axel}.md`). Bootstrap copies both; never overwrites existing `.opencode/`.
-
-## Status recipes (docs, not this remote's forever justfile)
-
-```
-status:
-    @./scripts/status-dashboard
-
-status-html:
-    @./scripts/status-dashboard --html
-```
-
-Fragment: `templates/harness/justfile.status`.
+`/status` lives here. `/avril` and `/axel` bodies live in [`crossr-loops`](https://github.com/sycamore-hq/crossr-loops). Bootstrap copies both.
 
 ## Not here
 
@@ -51,7 +50,7 @@ Fragment: `templates/harness/justfile.status`.
 - Loop conductors and personas — loops
 - `/avril` `/axel` prompt bodies — loops
 - `scripts/sync-claude-skills` — catalog
-- Public site — landing (split-05)
+- Public site — landing
 
 ## Sibling remotes
 

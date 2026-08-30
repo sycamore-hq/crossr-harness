@@ -216,10 +216,19 @@ Only after all four layers pass is the commit + artifacts updated.
 Every new project runs (or the human runs):
 
 ```bash
-harness-bootstrap .          # or the equivalent script
+./scripts/harness-bootstrap .          # or the equivalent script
 ```
 
-This produces a minimal but complete starting harness (AGENTS.md, features.json with phase 0 + schema reference, justfile, progress.md stub, .agents/skills/ guidance, and the Claude generator).
+This produces a minimal but complete starting harness (AGENTS.md, features.json with phase 0, justfile, progress.md stub, `.agents/skills/` from the lockfile pins, OpenCode `/avril` `/axel` `/status`).
+
+Pins live in `lockfile.toml` (not a third tracker — `features.json` remains the work log):
+
+```
+skills = "<tag>"
+loops  = "<tag>"
+```
+
+Bootstrap copies catalog skills from the skills tag, loop conductors + personas + `/avril` `/axel` from the loops tag, and harness templates from this remote. Never overwrites existing `.opencode/`. No git submodules. `--process-only` writes tracking files without copying skills (product-repo dogfood).
 
 After the first commit of the empty harness, all future work is tracked inside it.
 
