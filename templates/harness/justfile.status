@@ -1,0 +1,9 @@
+# Orchestration status dashboard (in-harness UI).
+# Append to a project's justfile; do not clobber an existing `status:` recipe.
+# This remote does not keep a forever justfile of its own.
+
+status:
+    @./scripts/status-dashboard
+
+status-html:
+    @./scripts/status-dashboard --html
