@@ -5,7 +5,7 @@
       {
         "id": "pr2b",
         "title": "bootstrap: generate .opencode/agent/ from persona sources",
-        "status": "in_progress",
+        "status": "completed",
         "features": [
           "generate_opencode_agents",
           "generated_marker",
@@ -14,6 +14,17 @@
           "verify_opencode_subagent_and_drift",
           "orphan_persona_warning",
           "marker_anchored_to_first_body_line"
+        ]
+      },
+      {
+        "id": "pr3b",
+        "title": "pins to v1-gan-layers/v1-no-rtl; retarget rust-team-lead mentions",
+        "status": "in_progress",
+        "features": [
+          "lockfile_pins_v1",
+          "harness_spec_rtl_retarget",
+          "protected_law_rtl_retarget",
+          "smoke_process_only_v1_pins"
         ]
       }
     ]

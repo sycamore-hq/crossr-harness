@@ -22,3 +22,19 @@
 - Conductor window at those pins: 19,816 bytes (axel 18,684 + gan-verdict 1,132)
 - shellcheck: `harness-bootstrap` clean
 - Reviews: hold (stale sample) + marker anchor + orphan tripwire addressed
+
+## PR 3b — pins to v1-gan-layers / v1-no-rtl; retarget rust-team-lead
+
+- `lockfile.toml` + `lockfile.toml.example`: `v1-gan-layers` / `v1-no-rtl`.
+  Closes the skills#108 window (fresh bootstraps were cloning v0 and generating
+  the fat pre-2a conductor).
+- `HARNESS-SPEC.md`: dropped `rust-team-lead`; `rust-architect` → `architecture`
+  (PR 1a name); persona trio → role names at the new loops pin.
+- Protected-law SKILL.md edits (one-word-class): `chief-of-staff`,
+  `dashboard-prompt` — dropped `rust-team-lead` from the orchestration list.
+  `scripts/status-dashboard` docstring same drop (not skill law).
+- Smoke `--process-only` assertions follow the new pins. Full-bootstrap now
+  also asserts lean conductor (`axel` + `gan-verdict`) and no orphan warnings.
+
+## Verification Status
+- pending smoke run against the new tags

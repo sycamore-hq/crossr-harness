@@ -17,8 +17,8 @@ for f in AGENTS.md features.json progress.md justfile lockfile.toml; do
         exit 1
     fi
 done
-if grep -q 'skills = "v0-last-monolith"' "$TMPDIR/proc/lockfile.toml" \
-   && grep -q 'loops  = "v0"' "$TMPDIR/proc/lockfile.toml"; then
+if grep -q 'skills = "v1-gan-layers"' "$TMPDIR/proc/lockfile.toml" \
+   && grep -q 'loops  = "v1-no-rtl"' "$TMPDIR/proc/lockfile.toml"; then
     echo "✓ process-only wrote tracking files + pins"
 else
     echo "✗ process-only lockfile pins wrong"
@@ -65,6 +65,33 @@ if [ ! -f "$TMPDIR/full/HARNESS-SPEC.md" ]; then
     exit 1
 fi
 echo "✓ full bootstrap installed catalog + loops + harness files"
+
+if grep -q 'orphan persona' "$TMPDIR/full.log"; then
+    echo "✗ orphan persona warning on fresh target"
+    grep 'orphan persona' "$TMPDIR/full.log"
+    exit 1
+fi
+echo "✓ fresh target has no orphan persona warnings"
+
+if [ -d "$TMPDIR/full/.agents/skills/rust-team-lead" ]; then
+    echo "✗ rust-team-lead skill installed from new pins"
+    exit 1
+fi
+if [ ! -f "$TMPDIR/full/.opencode/agent/axel.md" ]; then
+    echo "✗ missing generated axel.md"
+    exit 1
+fi
+if ! grep -qF '`axel`' "$TMPDIR/full/.opencode/agent/axel.md" \
+   || ! grep -qF '`gan-verdict`' "$TMPDIR/full/.opencode/agent/axel.md"; then
+    echo "✗ generated axel.md is not the lean load set (axel + gan-verdict)"
+    tail -20 "$TMPDIR/full/.opencode/agent/axel.md"
+    exit 1
+fi
+if grep -qF 'rust-team-lead' "$TMPDIR/full/.opencode/agent/axel.md"; then
+    echo "✗ generated axel.md still names rust-team-lead"
+    exit 1
+fi
+echo "✓ generated conductor is lean (axel + gan-verdict)"
 
 echo "Testing full idempotency (does not clobber unmarked .opencode)..."
 echo "kept" >> "$TMPDIR/full/.opencode/agent/avril.md"

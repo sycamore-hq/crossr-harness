@@ -2,7 +2,7 @@
 """status-dashboard — the in-harness orchestration UI.
 
 Renders work completed / in progress / todo from the harness's own tracking
-artifacts, so an orchestrator (AVRIL, AXEL, rust-team-lead, or a generated
+artifacts, so an orchestrator (AVRIL, AXEL, or a generated
 orchestrator prompt) can refresh a single view as it makes progress.
 
 Usage:
