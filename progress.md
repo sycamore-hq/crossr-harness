@@ -58,5 +58,9 @@
   to `status.md`; generated `avril.md` regenerates.
 
 ## Verification Status
-- `./test/harness-bootstrap-smoke.sh` — pending on this branch
+- `./test/harness-bootstrap-smoke.sh` PASS
+  - `--process-only` writes `v1-gan-layers` / `v1-cards`
+  - full bootstrap cloned those tags; no `! orphan persona` on a fresh target
+  - generated `avril.md` is primary (`avril` + `gan-verdict`); mutation discarded on regen
+  - unmarked keep is `status.md`; fixture-planted handwritten `avril.md` still untouched
 - Conductor window at these pins: 7,121 bytes (axel 5,989 + gan-verdict 1,132)
