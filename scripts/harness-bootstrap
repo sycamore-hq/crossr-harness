@@ -17,8 +17,9 @@
 #                 status-dashboard
 # Then generates .opencode/agent/<name>.md from each $TARGET/.agents/agents/*.md
 # persona. Generated files carry a marker and are regenerated every run.
-# Never overwrites a .opencode/ file that lacks that marker (hand-written
-# avril.md / status.md stay put). No git submodules.
+# Never overwrites a .opencode/ file that lacks that marker (status.md
+# stays put; a pre-v1-cards unmarked avril.md also stays until deleted
+# by hand). No git submodules.
 #
 # --process-only: AGENTS.md, features.json, progress.md, justfile, lockfile.toml
 # only. Product-repo dogfood. Does not copy skills.
