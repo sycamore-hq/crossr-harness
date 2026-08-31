@@ -2,4 +2,4 @@
 # Not a third tracker — features.json remains the work log. No git submodules.
 
 skills = "v1-gan-layers"
-loops  = "v1-no-rtl"
+loops  = "v1-cards"

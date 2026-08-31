@@ -1,6 +1,6 @@
 # Pins consumed by harness-bootstrap / sync-skills.
 # Not a third tracker — features.json remains the work log. No git submodules.
-# skills = gan-layer catalog (architecture, gan-verdict). loops = no rust-team-lead; inner GAN is code-gan.
+# skills = gan-layer catalog (architecture, gan-verdict). loops = card split; avril-conductor-agent.
 
 skills = "v1-gan-layers"
-loops  = "v1-no-rtl"
+loops  = "v1-cards"

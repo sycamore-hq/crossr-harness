@@ -18,7 +18,7 @@ for f in AGENTS.md features.json progress.md justfile lockfile.toml; do
     fi
 done
 if grep -q 'skills = "v1-gan-layers"' "$TMPDIR/proc/lockfile.toml" \
-   && grep -q 'loops  = "v1-no-rtl"' "$TMPDIR/proc/lockfile.toml"; then
+   && grep -q 'loops  = "v1-cards"' "$TMPDIR/proc/lockfile.toml"; then
     echo "✓ process-only wrote tracking files + pins"
 else
     echo "✗ process-only lockfile pins wrong"
@@ -93,15 +93,39 @@ if grep -qF 'rust-team-lead' "$TMPDIR/full/.opencode/agent/axel.md"; then
 fi
 echo "✓ generated conductor is lean (axel + gan-verdict)"
 
+if ! grep -qF 'GENERATED from .agents/agents/avril-conductor-agent.md' \
+        "$TMPDIR/full/.opencode/agent/avril.md"; then
+    echo "✗ avril.md is not generated from avril-conductor-agent"
+    tail -20 "$TMPDIR/full/.opencode/agent/avril.md"
+    exit 1
+fi
+if ! grep -qE '^mode: primary$' "$TMPDIR/full/.opencode/agent/avril.md"; then
+    echo "✗ generated avril.md is not mode: primary"
+    exit 1
+fi
+if ! grep -qF '`avril`' "$TMPDIR/full/.opencode/agent/avril.md" \
+   || ! grep -qF '`gan-verdict`' "$TMPDIR/full/.opencode/agent/avril.md"; then
+    echo "✗ generated avril.md is not the lean load set (avril + gan-verdict)"
+    tail -20 "$TMPDIR/full/.opencode/agent/avril.md"
+    exit 1
+fi
+echo "✓ generated avril.md is primary (avril + gan-verdict)"
+
 echo "Testing full idempotency (does not clobber unmarked .opencode)..."
-echo "kept" >> "$TMPDIR/full/.opencode/agent/avril.md"
+echo "kept" >> "$TMPDIR/full/.opencode/agent/status.md"
+echo "MUTATED" >> "$TMPDIR/full/.opencode/agent/avril.md"
 "$BOOTSTRAP" "$TMPDIR/full" > /dev/null
-if grep -q kept "$TMPDIR/full/.opencode/agent/avril.md"; then
-    echo "✓ second run kept unmarked .opencode/agent/avril.md"
+if grep -q kept "$TMPDIR/full/.opencode/agent/status.md"; then
+    echo "✓ second run kept unmarked .opencode/agent/status.md"
 else
     echo "✗ second run overwrote unmarked .opencode"
     exit 1
 fi
+if grep -q MUTATED "$TMPDIR/full/.opencode/agent/avril.md"; then
+    echo "✗ generated avril.md was not regenerated"
+    exit 1
+fi
+echo "✓ generated avril.md regenerated (mutation discarded)"
 
 echo "Testing unknown --force is rejected..."
 if "$BOOTSTRAP" --force "$TMPDIR/x" > /dev/null 2>&1; then

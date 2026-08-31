@@ -43,3 +43,20 @@
   - generated `axel.md` is the lean conductor (`axel` + `gan-verdict`); no `rust-team-lead` skill
 - Conductor window at these pins: 19,280 bytes (axel 18,148 + gan-verdict 1,132)
 - `rust-team-lead` remainders in this tree: `verify-docs` featured-set (site/3c), `MIGRATION.md` history, smoke fixture dummies, this log
+
+## PR 4 follow-on — pin loops to v1-cards; generate avril.md
+
+- `lockfile.toml` + `lockfile.toml.example`: `loops = "v1-cards"` (skills pin
+  unchanged). Closes the 4a/4b window: fresh bootstraps were still cloning
+  `v1-no-rtl` (no `avril-conductor-agent`, unmarked `avril.md` from the old
+  template).
+- README + bootstrap header: `avril.md` is generated; `status.md` is the
+  remaining hand-written default. Pre-v1-cards unmarked `avril.md` stays until
+  deleted by hand (never-overwrite).
+- Smoke: `--process-only` writes `v1-cards`; full bootstrap asserts generated
+  `avril.md` (`mode: primary`, `avril` + `gan-verdict`); unmarked keep moved
+  to `status.md`; generated `avril.md` regenerates.
+
+## Verification Status
+- `./test/harness-bootstrap-smoke.sh` — pending on this branch
+- Conductor window at these pins: 7,121 bytes (axel 5,989 + gan-verdict 1,132)

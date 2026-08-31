@@ -26,6 +26,17 @@
           "protected_law_rtl_retarget",
           "smoke_process_only_v1_pins"
         ]
+      },
+      {
+        "id": "pr4-pin",
+        "title": "pin loops to v1-cards; fresh bootstrap generates avril.md",
+        "status": "completed",
+        "features": [
+          "lockfile_loops_v1_cards",
+          "generated_avril_on_fresh_bootstrap",
+          "stale_unmarked_avril_remedy_documented",
+          "smoke_process_only_v1_cards"
+        ]
       }
     ]
   }
