@@ -19,7 +19,7 @@
       {
         "id": "pr3b",
         "title": "pins to v1-gan-layers/v1-no-rtl; retarget rust-team-lead mentions",
-        "status": "in_progress",
+        "status": "completed",
         "features": [
           "lockfile_pins_v1",
           "harness_spec_rtl_retarget",

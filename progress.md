@@ -37,4 +37,9 @@
   also asserts lean conductor (`axel` + `gan-verdict`) and no orphan warnings.
 
 ## Verification Status
-- pending smoke run against the new tags
+- `./test/harness-bootstrap-smoke.sh` PASS
+  - `--process-only` writes `v1-gan-layers` / `v1-no-rtl`
+  - full bootstrap cloned those tags; no `! orphan persona` on a fresh target
+  - generated `axel.md` is the lean conductor (`axel` + `gan-verdict`); no `rust-team-lead` skill
+- Conductor window at these pins: 19,280 bytes (axel 18,148 + gan-verdict 1,132)
+- `rust-team-lead` remainders in this tree: `verify-docs` featured-set (site/3c), `MIGRATION.md` history, smoke fixture dummies, this log
