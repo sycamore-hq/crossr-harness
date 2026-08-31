@@ -134,7 +134,7 @@ Violations against any of these observable criteria during fresh activation indi
 
 This skill is the dashboard-wiring specialization of the harness layer (precondition: `code-writer` active; a project with at least one machine-readable source of work state). It supplies the tracker inventory, the vocabulary-mapping discipline, the prove-against-live-data gate, and the machine-facing contract template, while preserving every principle of the base (postcondition: a config whose counts provably match the board, and a contract the working agent can follow without further explanation).
 
-It composes with the orchestration skills rather than replacing them. `avril`, `axel`, and `rust-team-lead` already know *when* to refresh a dashboard; this skill makes sure the thing they refresh is telling the truth about that project.
+It composes with the orchestration skills rather than replacing them. `avril` and `axel` already know *when* to refresh a dashboard; this skill makes sure the thing they refresh is telling the truth about that project.
 
 It carries no dashboard-refresh duty of its own, for the same reason `orchestrator-prompt` does not: both are generators that finish in one pass rather than conductors running work over time. The duty belongs in what they emit, and here that is the contract itself.
 

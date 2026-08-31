@@ -154,7 +154,7 @@ Violations against any of these observable criteria during fresh activation indi
 
 This skill is the portfolio-reporting specialization of the harness layer (precondition: `code-writer` active; read access to the named projects and, ideally, a status-dashboard generator). It supplies the roster-per-run rule, the freshness-before-counts discipline, per-project provenance, the decision-led briefing shape, and the read-only boundary, while preserving every principle of the base (postcondition: a briefing whose every number is traceable and whose gaps are named).
 
-It consumes what the orchestration skills produce. `avril`, `axel`, and `rust-team-lead` keep each project's dashboard current; `dashboard-prompt` makes sure a given project's dashboard is telling the truth; this skill reads across them and writes for a human who was not watching.
+It consumes what the orchestration skills produce. `avril` and `axel` keep each project's dashboard current; `dashboard-prompt` makes sure a given project's dashboard is telling the truth; this skill reads across them and writes for a human who was not watching.
 
 ## One-Sentence Mandate (Memorize This)
 

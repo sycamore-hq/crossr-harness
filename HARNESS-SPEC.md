@@ -195,7 +195,7 @@ Before a commit is considered done:
 1. Self-critique + full test matrix + clippy (pedantic) + fmt
 2. `rust-code-reviewer` ruthless pass
 3. `rust-code-tester` coverage + exhaustive error path pass
-4. `rust-architect` (or `rust-team-lead` GAN) architectural sign-off
+4. `architecture` architectural sign-off
 
 Only after all four layers pass is the commit + artifacts updated.
 
@@ -257,15 +257,15 @@ Changes are proposed via the same harness process the spec itself defines (featu
 As of the 2026 GAN mechanization effort, reusable agent personas live in `.agents/agents/`.
 
 The canonical trio for quality enforcement is:
-- `rust-reviewer-agent`
-- `rust-tester-agent`
-- `rust-architect-agent`
+- `reviewer-agent`
+- `tester-agent`
+- `architect-agent`
 
-Projects are encouraged to run the full GAN sequence (Reviewer → Tester → Architect) on significant changes. See `.agents/agents/README.md` for the recommended invocation pattern. Loop personas (AVRIL quartet, AXEL conductor, BRICK stage agents, rust-team-lead) are supplied by [`crossr-loops`](https://github.com/sycamore-hq/crossr-loops).
+Projects are encouraged to run the full GAN sequence (Reviewer → Tester → Architect) on significant changes. See `.agents/agents/README.md` for the recommended invocation pattern. Loop personas (AVRIL quartet, AXEL conductor, BRICK stage agents) are supplied by [`crossr-loops`](https://github.com/sycamore-hq/crossr-loops).
 
 ## 12. Loops (supplied, not defined here)
 
-AVRIL, AXEL, BRICK, and rust-team-lead are **loop law**. They live in [`crossr-loops`](https://github.com/sycamore-hq/crossr-loops). This spec does not define their cycles, blessing language, or intake gates. A copy of this spec that still spells out AVRIL's adversary order or AXEL's per-PBI loop is stale — read the loops remote.
+AVRIL, AXEL, and BRICK are **loop law**. They live in [`crossr-loops`](https://github.com/sycamore-hq/crossr-loops). This spec does not define their cycles, blessing language, or intake gates. A copy of this spec that still spells out AVRIL's adversary order or AXEL's per-PBI loop is stale — read the loops remote.
 
 The harness **discloses** (stratified parameters at activation):
 
