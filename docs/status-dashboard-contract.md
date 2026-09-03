@@ -15,7 +15,7 @@ PARAMETERS (resolved for this project)
   CHECKPOINTS      = see CHECKPOINTS below
 
 SOURCES OF TRUTH (read-only; the dashboard renders these, it never replaces them)
-  Board          : none (pinto is not installed; DEFAULT_CONFIG board command is `pinto list --json`)
+  Board          : `pinto list --json` when pinto is on PATH (DEFAULT_CONFIG); absent, the dashboard falls back to features.json and REFRESH prints `(from features.json)`
   Tracking file  : features.json — phases -> commits -> features; schema in features.schema.json
   Narrative log  : progress.md
   Status words   : done   = completed, complete, done, verified, merged, shipped

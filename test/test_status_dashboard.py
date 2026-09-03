@@ -78,6 +78,20 @@ class FeatureUnits(unittest.TestCase):
         self.assertEqual(t[ACTIVE], 0)
         self.assertEqual(t[TODO], 0)
 
+    def test_completed_phase_with_pending_commit_is_not_done(self):
+        shaped = phases({
+            "inconsistent": {
+                "status": "completed",
+                "commits": [
+                    {"id": "c1", "title": "still open", "status": "pending"},
+                ],
+            }
+        })
+        t = dash.totals(shaped, [])
+        self.assertEqual(t[DONE], 0)
+        self.assertEqual(t[ACTIVE], 0)
+        self.assertEqual(t[TODO], 1)
+
     def test_empty_pending_phase_is_todo(self):
         shaped = phases({"next": {"status": "pending", "commits": []}})
         t = dash.totals(shaped, [])
