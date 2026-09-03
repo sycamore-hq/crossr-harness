@@ -184,7 +184,9 @@ def feature_units(phases: list[dict]) -> list[dict]:
     for phase in phases:
         items = list(phase["items"])
         units.extend(items)
-        if phase["state"] not in {item["state"] for item in items}:
+        if phase["state"] not in {item["state"] for item in items} and (
+            phase["state"] != DONE or not items
+        ):
             units.append(phase_unit(phase))
     return units
 
