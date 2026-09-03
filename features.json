@@ -39,5 +39,21 @@
         ]
       }
     ]
+  },
+  "dashboard-phase": {
+    "status": "completed",
+    "commits": [
+      {
+        "id": "dashboard-phase",
+        "title": "totals() count phase-level in_progress",
+        "status": "completed",
+        "features": [
+          "feature_units",
+          "phase_in_progress_in_totals",
+          "open_phase_features_phase_unit",
+          "dashboard_contract"
+        ]
+      }
+    ]
   }
 }

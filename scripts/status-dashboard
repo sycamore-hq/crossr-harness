@@ -165,9 +165,32 @@ def board_from_pinto(raw: object) -> list[dict]:
     return board_items(raw)
 
 
+def feature_units(phases: list[dict]) -> list[dict]:
+    """Commits are the units. A phase whose state is not among its commit
+    states is also a unit — otherwise a phase left in_progress after every
+    child completed counts as 0 in progress.
+    """
+    units = []
+    for phase in phases:
+        items = list(phase["items"])
+        units.extend(items)
+        if phase["state"] not in {item["state"] for item in items}:
+            units.append({
+                "id": phase["name"],
+                "title": phase["name"],
+                "state": phase["state"],
+            })
+    return units
+
+
+def work_units(phases: list[dict], board: list[dict]) -> list[dict]:
+    """Board items win when both are present; otherwise features.json units."""
+    return board if board else feature_units(phases)
+
+
 def totals(phases: list[dict], board: list[dict]) -> dict:
     """Count units of work by state. Board items win when both are present."""
-    units = board if board else [i for p in phases for i in p["items"]]
+    units = work_units(phases, board)
     return {
         DONE: sum(1 for u in units if u["state"] == DONE),
         ACTIVE: sum(1 for u in units if u["state"] == ACTIVE),
@@ -227,12 +250,28 @@ def label_counts(raw_items: list[dict], board: list[dict]) -> list[tuple]:
 
 
 def open_phase_features(phases: list[dict]) -> list[dict]:
-    """Phases with unfinished work, and the items still outstanding in them."""
-    return [
-        {"name": p["name"], "done": p["done"], "total": p["total"],
-         "items": [i for i in p["items"] if i["state"] != DONE]}
-        for p in phases if p["done"] < p["total"]
-    ]
+    """Phases with unfinished work, and the items still outstanding in them.
+
+    A phase left in_progress after every child completed is unfinished even
+    though done == total. The phase itself is the outstanding item.
+    """
+    open_phases = []
+    for phase in phases:
+        outstanding = [item for item in phase["items"] if item["state"] != DONE]
+        if phase["state"] != DONE and phase["state"] not in {item["state"] for item in outstanding}:
+            outstanding = outstanding + [{
+                "id": phase["name"],
+                "title": phase["name"],
+                "state": phase["state"],
+            }]
+        if outstanding:
+            open_phases.append({
+                "name": phase["name"],
+                "done": phase["done"],
+                "total": phase["total"],
+                "items": outstanding,
+            })
+    return open_phases
 
 
 # ------------------------------------------------------------------- rendering
@@ -367,7 +406,7 @@ def _cards(items: list[dict], state: str) -> str:
 
 def render_html(model: dict) -> str:
     t = model["totals"]
-    units = model["board"] or [i for p in model["phases"] for i in p["items"]]
+    units = work_units(model["phases"], model["board"])
     by = {s: [u for u in units if u["state"] == s] for s in (DONE, ACTIVE, TODO)}
     total = max(len(units), 1)
 
@@ -522,12 +561,12 @@ def render_portfolio_markdown(pf: dict) -> str:
         n = max(t[DONE] + t[ACTIVE] + t[TODO], 1)
         out.append(f"| **{m['project']}** | {t[DONE]} | {t[ACTIVE]} | {t[TODO]} | "
                    f"`{_bar(round(100 * t[DONE] / n))}` | {t['source']} |")
-    active = [(m["project"], b) for m in pf["projects"]
-              for b in m["board"] if b["state"] == ACTIVE]
+    active = [(m["project"], u) for m in pf["projects"]
+              for u in work_units(m["phases"], m["board"]) if u["state"] == ACTIVE]
     if active:
         out += ["", "**In progress right now**", "", "| project | id | title |", "|---|---|---|"]
-        for proj, b in active:
-            out.append(f"| {proj} | `{b['id']}` | {b['title']} |")
+        for proj, item in active:
+            out.append(f"| {proj} | `{item['id']}` | {item['title']} |")
     return "\n".join(out)
 
 
@@ -554,9 +593,10 @@ def render_portfolio_html(pf: dict) -> str:
         )
     active = "".join(
         f'<tr class="border-b border-zinc-800/60"><td class="py-2 pr-4 text-zinc-500">{html.escape(m["project"])}</td>'
-        f'<td class="py-2 pr-4 font-mono text-xs text-zinc-400">{html.escape(str(b["id"]))}</td>'
-        f'<td class="py-2 text-zinc-200">{html.escape(b["title"])}</td></tr>'
-        for m in pf["projects"] for b in m["board"] if b["state"] == ACTIVE
+        f'<td class="py-2 pr-4 font-mono text-xs text-zinc-400">{html.escape(str(u["id"]))}</td>'
+        f'<td class="py-2 text-zinc-200">{html.escape(u["title"])}</td></tr>'
+        for m in pf["projects"]
+        for u in work_units(m["phases"], m["board"]) if u["state"] == ACTIVE
     ) or '<tr><td class="py-2 text-zinc-600 italic" colspan="3">nothing in progress</td></tr>'
 
     return f"""<!DOCTYPE html>
