@@ -84,6 +84,7 @@ shape of `gan-layer-separation` here, in loops, and in skills.
 
 ## Verification Status
 - `python3 test/test_status_dashboard.py` — 9 tests OK
+- `./test/harness-bootstrap-smoke.sh` — PASS
 - Live proof (features.json, no board):
   - harness: was 3/0/0, now 4/1/0 (3 gan commits + this commit done; gan-layer-separation active)
   - loops: was 5/0/0, now 6/1/0 (phase0 empty-completed now counts; gan-layer-separation active)
