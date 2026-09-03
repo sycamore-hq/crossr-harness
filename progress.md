@@ -64,3 +64,29 @@
   - generated `avril.md` is primary (`avril` + `gan-verdict`); mutation discarded on regen
   - unmarked keep is `status.md`; fixture-planted handwritten `avril.md` still untouched
 - Conductor window at these pins: 7,121 bytes (axel 5,989 + gan-verdict 1,132)
+
+## dashboard-phase — totals() count phase-level in_progress
+
+`totals()` flattened commit items only. A phase left `in_progress` after every
+child commit completed printed 100% done and 0 in progress. That is the live
+shape of `gan-layer-separation` here, in loops, and in skills.
+
+- `feature_units()`: commits are the units; a phase whose state is not among
+  its commit states is also a unit. No double-count when a child is already
+  active. Empty pending / completed phases count as themselves.
+- `work_units()` is the shared source for headline totals, HTML cards, and
+  portfolio "in progress right now".
+- `open_phase_features()` lists that phase as unfinished, with the phase
+  itself as the outstanding item.
+- Defaults already map `in_progress` → active. No `dashboard.config.json`.
+- Contract: `docs/status-dashboard-contract.md`.
+- Did not close `gan-layer-separation`. That is `gan-close-4b` (work#6).
+
+## Verification Status
+- `python3 test/test_status_dashboard.py` — 9 tests OK
+- Live proof (features.json, no board):
+  - harness: was 3/0/0, now 4/1/0 (3 gan commits + this commit done; gan-layer-separation active)
+  - loops: was 5/0/0, now 6/1/0 (phase0 empty-completed now counts; gan-layer-separation active)
+  - skills: was 94/0/0, now 94/1/0 (gan-layer-separation active)
+  Record: 3 in_progress phases, 0 in_progress commits, 102 completed commits.
+- Board: none (pinto not installed). Defaults map `in_progress` → active; no config file.

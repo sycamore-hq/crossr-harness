@@ -8,6 +8,7 @@ check:
     cargo check --workspace 2>/dev/null || echo "(no Rust crates)"
 
 test:
+    @python3 test/test_status_dashboard.py
     @./test/harness-bootstrap-smoke.sh
 
 # Orchestration status dashboard (in-harness UI)
