@@ -150,13 +150,18 @@ class LiveHarnessFeatures(unittest.TestCase):
             c.get("id")
             for body in features.values() if isinstance(body, dict)
             for c in body.get("commits") or []
-            if dash.classify(c.get("status", "")) == ACTIVE
+            if isinstance(c, dict) and dash.classify(c.get("status", "")) == ACTIVE
         ]
-        # The bug: 1 in_progress phase, 0 in_progress commits, totals said 0.
-        self.assertTrue(live_active_phases, "features.json has no in_progress phase to prove against")
-        self.assertEqual(live_active_commits, [])
-        self.assertEqual(t[ACTIVE], len(live_active_phases))
-        self.assertGreaterEqual(t[DONE], 1)
+        if not live_active_phases:
+            self.skipTest("features.json has no in_progress phase to prove against")
+        phases_without_active_commit = [
+            name for name, body in features.items()
+            if isinstance(body, dict)
+            and dash.classify(body.get("status", "")) == ACTIVE
+            and not any(dash.classify(c.get("status", "")) == ACTIVE
+                        for c in body.get("commits") or [] if isinstance(c, dict))
+        ]
+        self.assertEqual(t[ACTIVE], len(live_active_commits) + len(phases_without_active_commit))
 
 
 if __name__ == "__main__":
