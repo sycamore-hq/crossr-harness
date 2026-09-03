@@ -165,6 +165,16 @@ def board_from_pinto(raw: object) -> list[dict]:
     return board_items(raw)
 
 
+def phase_unit(phase: dict) -> dict:
+    """The phase itself as a unit of work, when its state is not carried by any commit."""
+    return {
+        "id": phase["name"],
+        "title": f"phase {phase['name']} ({phase['done']}/{phase['total']} commits done)",
+        "state": phase["state"],
+        "kind": "phase",
+    }
+
+
 def feature_units(phases: list[dict]) -> list[dict]:
     """Commits are the units. A phase whose state is not among its commit
     states is also a unit — otherwise a phase left in_progress after every
@@ -175,11 +185,7 @@ def feature_units(phases: list[dict]) -> list[dict]:
         items = list(phase["items"])
         units.extend(items)
         if phase["state"] not in {item["state"] for item in items}:
-            units.append({
-                "id": phase["name"],
-                "title": phase["name"],
-                "state": phase["state"],
-            })
+            units.append(phase_unit(phase))
     return units
 
 
@@ -259,11 +265,7 @@ def open_phase_features(phases: list[dict]) -> list[dict]:
     for phase in phases:
         outstanding = [item for item in phase["items"] if item["state"] != DONE]
         if phase["state"] != DONE and phase["state"] not in {item["state"] for item in outstanding}:
-            outstanding = outstanding + [{
-                "id": phase["name"],
-                "title": phase["name"],
-                "state": phase["state"],
-            }]
+            outstanding = outstanding + [phase_unit(phase)]
         if outstanding:
             open_phases.append({
                 "name": phase["name"],
@@ -295,15 +297,15 @@ def render_terminal(model: dict) -> str:
 
     if model["phases"]:
         out += ["", "  PHASES"]
+        open_by_name = {op["name"]: op["items"] for op in open_phase_features(model["phases"])}
         for p in model["phases"]:
             bar_len = 16
             filled = round(bar_len * p["percent"] / 100)
             bar = "█" * filled + "·" * (bar_len - filled)
             out.append(f"    {MARK[p['state']]} {p['name'][:34]:<34} "
                        f"{bar} {p['done']}/{p['total']}")
-            for i in p["items"]:
-                if i["state"] != DONE:
-                    out.append(f"        {MARK[i['state']]} {i['id']}  {i['title'][:52]}")
+            for i in open_by_name.get(p["name"], []):
+                out.append(f"        {MARK[i['state']]} {i['id']}  {i['title'][:52]}")
 
     open_items = [b for b in model["board"] if b["state"] != DONE]
     if open_items:
@@ -420,7 +422,7 @@ def render_html(model: dict) -> str:
         f'<span class="text-xs text-zinc-500 tabular-nums shrink-0">{p["done"]}/{p["total"]}</span>'
         f'</div>'
         f'<div class="h-1.5 bg-zinc-800 rounded-full mt-2 overflow-hidden">'
-        f'<div class="h-full rounded-full {"bg-emerald-500" if p["percent"] == 100 else "bg-amber-500"}" style="width:{p["percent"]}%"></div>'
+        f'<div class="h-full rounded-full {"bg-emerald-500" if p["state"] == DONE else "bg-amber-500"}" style="width:{p["percent"]}%"></div>'
         f'</div></div>'
         for p in model["phases"]
     ) or '<div class="text-sm text-zinc-600 italic">no features.json phases</div>'
