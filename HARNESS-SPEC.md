@@ -194,18 +194,20 @@ Gates are ordered by blast radius. The plan is blessed before code exists.
 
 **Plan gate** (before implementation):
 
-1. Mechanical plan audit (`audit-plan`) — bidirectional AC↔claim coverage, judgment quota, id integrity. Red never costs an LLM token.
+1. Mechanical plan audit (`just plan-audit <plan>`, installed by bootstrap from the skills pin) — bidirectional AC↔claim coverage, judgment quota, id integrity. Red never costs an LLM token.
 2. `architecture` at plan time — underspecification is a REJECT. Implementation does not start without BLESS.
 
-The blessed plan is committed before the first implementation commit.
+The blessed plan is committed before the first implementation commit, at the plan artifact path disclosed in §12.
 
 **Diff gate** (each implementation commit):
 
-1. Mechanical: fmt · clippy · build · test. Red → generator, no LLM.
+1. Mechanical: fmt · clippy · build · test. Red costs no LLM token.
 2. `testing` — AC coverage + zero regressions
 3. `code-review` — plan/AC conformance + one capped unanticipated-risk pass
 
 `architecture` at code time only on an unsatisfiable claim id. It is not the default last diff gate.
+
+Routing on REJECT or red is defined by the loops conductor card, not here.
 
 Only after the applicable gates pass is the commit + artifacts updated.
 
@@ -278,7 +280,7 @@ Projects are encouraged to run the plan-first GAN (Architect at plan time, then 
 
 The book is disclosed per project. A consumer `lockfile.toml` may carry `books = ["rust"]` (or `["ocaml"]`, `["rust", "ts"]`, ...). The lockfile parser accepts that key. AXEL pre-flight step 4 reads it and states the language stack:
 
-- Generator (plan phase) loads `plan-writer` + the disclosed book's Rules projection + the PBI. Do not load `code-writer`.
+- Generator (plan phase) loads `plan-writer` + `<book>/RULES.md` + the PBI. Never `<book>/references/`. Do not load `code-writer`.
 - Generator (execute phase) loads `code-writer` + the disclosed book (card + the references for the situation) + domain skills
 - Adversaries load the gate card + `<book>/RULES.md`. Never `<book>/references/`
 - Test verifier: rules tagged `test` in that same `RULES.md`
@@ -299,6 +301,7 @@ The harness **discloses** (stratified parameters at activation):
 - Tracking artifacts (`features.json`, `progress.md`)
 - Ritual (`just` targets, session start, verification matrix)
 - Dashboard command (`just status` / `just status-html` / `/status`)
+- Plan artifacts (default `docs/plans/pbi/<id>.plan.md`; committed before implementation, immutable once blessed)
 
 Bootstrap installs pinned tags of the two catalogs. Not a third tracker — `features.json` remains the work log:
 

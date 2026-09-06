@@ -80,6 +80,7 @@ class LiveTree(unittest.TestCase):
         cls.spec = SPEC.read_text()
         cls.sec6 = section(cls.spec, "6. Verification Gates (Non-Negotiable)")
         cls.sec11 = section(cls.spec, "11. Agent Definitions (GAN Mechanization)")
+        cls.sec12 = section(cls.spec, "12. Loops (supplied, not defined here)")
         cls.features = json.loads((ROOT / "features.json").read_text())
         cls.progress = (ROOT / "progress.md").read_text()
 
@@ -87,9 +88,12 @@ class LiveTree(unittest.TestCase):
         self.assertTrue(self.sec6, "HARNESS-SPEC.md missing §6")
 
     def test_plan_gate_is_audit_then_architecture(self):
-        self.assertRegex(self.sec6, r"(?i)audit-plan|plan audit")
+        self.assertRegex(self.sec6, r"(?i)just plan-audit")
         self.assertRegex(self.sec6, r"(?i)plan time")
         self.assertRegex(self.sec6, r"`architecture`")
+        self.assertNotRegex(self.sec6, r"→\s*(generator|Generator|<node>)")
+        self.assertRegex(self.sec6, r"(?i)plan artifact path|§12")
+        self.assertIn("docs/plans/pbi/", self.sec12)
 
     def test_diff_gate_is_not_architect_last(self):
         self.assertRegex(self.sec6, r"`testing`")
