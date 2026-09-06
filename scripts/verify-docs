@@ -281,48 +281,7 @@ if grep -q "pipeline/overview" book/src/SUMMARY.md; then
     done
 fi
 
-# Site checks (enabled when site claims skills)
-echo ""
-echo "Checking marketing site skill claims..."
-if [[ -f site/templates/index.html ]]; then
-    if grep -qE '[0-9]+\+\s+production-grade skills|[0-9]+\+\s+skills' site/templates/index.html; then
-        fail "site uses unbounded skill count (N+)"
-    else
-        pass "site has no unbounded N+ skill count"
-    fi
-    if grep -qE 'ferro-wg|ferro-wave' site/templates/index.html; then
-        fail "site contains ferro-wg/ferro-wave namedrop"
-    else
-        pass "site has no ferro-* namedrop"
-    fi
-    if grep -q "AVRIL" site/templates/index.html && grep -q "AXEL" site/templates/index.html; then
-        pass "site names AVRIL and AXEL"
-    else
-        fail "site must name AVRIL and AXEL (pipeline)"
-    fi
-    # Featured / full N
-    if [[ -n "$ALLOWLIST" && "$COUNT" -gt 0 ]]; then
-        if grep -qE "full catalog \($COUNT\)|full catalog \\($COUNT\\)|N = $COUNT|$COUNT public skills|$COUNT skills" site/templates/index.html; then
-            pass "site states full catalog N=$COUNT"
-        elif grep -q "data-public-skill-count=\"$COUNT\"" site/templates/index.html; then
-            pass "site data-public-skill-count=$COUNT"
-        else
-            # accept "14" near catalog
-            if grep -qE "\b$COUNT\b" site/templates/index.html && grep -qi "catalog\|skills" site/templates/index.html; then
-                pass "site mentions allowlist count $COUNT near skills/catalog"
-            else
-                fail "site does not state full public catalog count N=$COUNT"
-            fi
-        fi
-        for must in code-writer avril axel rust-team-lead; do
-            if grep -q "$must" site/templates/index.html; then
-                pass "site features $must"
-            else
-                fail "site missing required featured skill: $must"
-            fi
-        done
-    fi
-fi
+# Site copy lives in crossr-web-landing (PR 5g). This remote has no site/.
 
 generate_html_report() {
     REPORT_PATH="docs/docs-verification-report.html"

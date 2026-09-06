@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test for harness-bootstrap (split-08 pins; PR 2b generated agents).
+# Smoke test for harness-bootstrap (PR 5e pins + books disclosure).
 
 set -euo pipefail
 
@@ -17,14 +17,42 @@ for f in AGENTS.md features.json progress.md justfile lockfile.toml; do
         exit 1
     fi
 done
-if grep -q 'skills = "v1-gan-layers"' "$TMPDIR/proc/lockfile.toml" \
-   && grep -q 'loops  = "v1-cards"' "$TMPDIR/proc/lockfile.toml"; then
+if grep -q 'skills = "v1-one-law"' "$TMPDIR/proc/lockfile.toml" \
+   && grep -q 'loops  = "v1-one-law-consumers"' "$TMPDIR/proc/lockfile.toml"; then
     echo "✓ process-only wrote tracking files + pins"
 else
     echo "✗ process-only lockfile pins wrong"
     cat "$TMPDIR/proc/lockfile.toml"
     exit 1
 fi
+
+echo "Testing example lockfile books..."
+python3 - "$SCRIPT_DIR/lockfile.toml.example" <<'PY'
+import sys, tomllib
+with open(sys.argv[1], "rb") as f:
+    data = tomllib.load(f)
+books = data.get("books")
+if not isinstance(books, list) or not books or not all(isinstance(b, str) for b in books):
+    print("✗ lockfile.toml.example books must be a non-empty array of strings")
+    sys.exit(1)
+print("✓ example lockfile books =", books)
+PY
+
+echo "Testing lockfile parser accepts books..."
+mkdir -p "$TMPDIR/with-books"
+cp "$SCRIPT_DIR/lockfile.toml.example" "$TMPDIR/with-books/lockfile.toml"
+"$BOOTSTRAP" --process-only "$TMPDIR/with-books" > "$TMPDIR/with-books.log"
+if ! grep -q 'Books: \["rust"\]' "$TMPDIR/with-books.log"; then
+    echo "✗ bootstrap did not accept lockfile books"
+    cat "$TMPDIR/with-books.log"
+    exit 1
+fi
+if ! grep -q 'books  = \["rust"\]' "$TMPDIR/with-books/lockfile.toml"; then
+    echo "✗ process-only dropped books from an existing lockfile"
+    cat "$TMPDIR/with-books/lockfile.toml"
+    exit 1
+fi
+echo "✓ lockfile parser accepts books (reader i)"
 
 echo "Testing process-only idempotency (keeps AGENTS.md)..."
 echo "marker" >> "$TMPDIR/proc/AGENTS.md"
@@ -110,6 +138,47 @@ if ! grep -qF '`avril`' "$TMPDIR/full/.opencode/agent/avril.md" \
     exit 1
 fi
 echo "✓ generated avril.md is primary (avril + gan-verdict)"
+
+echo "Testing one-law catalog shape..."
+for skill in rust ocaml code-review testing; do
+    if [ ! -d "$TMPDIR/full/.agents/skills/$skill" ]; then
+        echo "✗ missing skill $skill"
+        exit 1
+    fi
+done
+for f in rust/RULES.md ocaml/RULES.md; do
+    if [ ! -s "$TMPDIR/full/.agents/skills/$f" ]; then
+        echo "✗ missing committed $f"
+        exit 1
+    fi
+done
+for dead in rust-code-writer rust-errors ocaml-code-writer rust-code-reviewer rust-code-tester; do
+    if [ -d "$TMPDIR/full/.agents/skills/$dead" ]; then
+        echo "✗ dead skill $dead installed from one-law pin"
+        exit 1
+    fi
+done
+echo "✓ books + gate cards present; absorbed writers absent"
+
+AXEL_B=$(wc -c < "$TMPDIR/full/.agents/skills/axel/SKILL.md")
+GV_B=$(wc -c < "$TMPDIR/full/.agents/skills/gan-verdict/SKILL.md")
+WINDOW=$((AXEL_B + GV_B))
+if [ "$WINDOW" -ne 7121 ]; then
+    echo "✗ conductor window is $WINDOW bytes (axel $AXEL_B + gan-verdict $GV_B); want 7121"
+    exit 1
+fi
+for f in \
+    "$TMPDIR/full/.agents/skills/axel/SKILL.md" \
+    "$TMPDIR/full/.agents/skills/gan-verdict/SKILL.md" \
+    "$TMPDIR/full/.opencode/agent/axel.md"
+do
+    if grep -qE '`rust`|`ocaml`' "$f"; then
+        echo "✗ conductor window names a book: $f"
+        grep -nE '`rust`|`ocaml`' "$f" || true
+        exit 1
+    fi
+done
+echo "✓ conductor window is 7,121 bytes and names no book"
 
 echo "Testing full idempotency (does not clobber unmarked .opencode)..."
 echo "kept" >> "$TMPDIR/full/.opencode/agent/status.md"
@@ -428,5 +497,39 @@ if grep -qiE '20[0-9]{2}-[0-9]{2}-[0-9]{2}|T[0-9]{2}:[0-9]{2}' "$FIX/g1"; then
     exit 1
 fi
 echo "✓ generator is deterministic and timestamp-free"
+
+echo "Testing requires.book + books = [] fails..."
+cat > "$TMPDIR/empty-books.toml" << 'EOF'
+skills = "v1-one-law"
+loops  = "v1-one-law-consumers"
+books  = []
+EOF
+LOOPS_TAG="$(python3 - "$SCRIPT_DIR/lockfile.toml" <<'PY'
+import sys, tomllib
+with open(sys.argv[1], "rb") as f:
+    print(tomllib.load(f)["loops"])
+PY
+)"
+LOOPS_PIN="$TMPDIR/loops-pin"
+git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$LOOPS_TAG" \
+    "${CROSSR_LOOPS_URL:-https://github.com/sycamore-hq/crossr-loops.git}" \
+    "$LOOPS_PIN"
+set +e
+CROSSR_SKILLS_PATH="$TMPDIR/full" \
+    CROSSR_CONSUMER_LOCKFILE="$TMPDIR/empty-books.toml" \
+    "$LOOPS_PIN/scripts/verify-skill-refs" > "$TMPDIR/empty-books.log" 2>&1
+empty_rc=$?
+set -e
+if [ "$empty_rc" -eq 0 ]; then
+    echo "✗ requires.book + books = [] should fail"
+    cat "$TMPDIR/empty-books.log"
+    exit 1
+fi
+if ! grep -q 'books = []' "$TMPDIR/empty-books.log"; then
+    echo "✗ empty-books failure did not mention books = []"
+    cat "$TMPDIR/empty-books.log"
+    exit 1
+fi
+echo "✓ requires.book + books = [] fails (reader iii)"
 
 echo "✓ All smoke tests passed"

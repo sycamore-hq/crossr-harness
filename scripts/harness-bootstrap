@@ -6,9 +6,12 @@
 #   ./scripts/harness-bootstrap [target-dir]
 #   ./scripts/harness-bootstrap --process-only [target-dir]
 #
-# Reads lockfile.toml (target, else this repo's lockfile.toml.example):
+# Reads lockfile.toml (target, else this repo's lockfile.toml / example):
 #   skills = "<tag>"
 #   loops  = "<tag>"
+#   books  = ["rust"]   # optional; disclosure filter, not a copy filter.
+#                       # copy_skill_dirs copies every SKILL.md directory
+#                       # and does not read books.
 #
 # Full install copies:
 #   skills pin  → .agents/skills/
@@ -35,7 +38,7 @@ LOOPS_URL="${CROSSR_LOOPS_URL:-https://github.com/sycamore-hq/crossr-loops.git}"
 PROCESS_ONLY=false
 TARGET=""
 usage() {
-    sed -n '2,26p' "$0"
+    sed -n '2,30p' "$0"
 }
 
 while [ $# -gt 0 ]; do
@@ -57,13 +60,32 @@ $PROCESS_ONLY && echo "  (process-only: tracking files, no skill copy)"
 
 lockfile_get() {
     python3 - "$1" "$2" <<'PY'
-import re, sys
+import sys, tomllib
 path, key = sys.argv[1], sys.argv[2]
-text = open(path).read()
-m = re.search(r'(?m)^\s*' + re.escape(key) + r'\s*=\s*"([^"]+)"', text)
-if not m:
+with open(path, "rb") as f:
+    data = tomllib.load(f)
+val = data.get(key)
+if not isinstance(val, str) or not val:
     sys.exit(1)
-print(m.group(1))
+print(val)
+PY
+}
+
+# Prints JSON: null when the key is absent, else the array. Exit 1 when the
+# key is present but not an array of strings.
+lockfile_books_json() {
+    python3 - "$1" <<'PY'
+import json, sys, tomllib
+with open(sys.argv[1], "rb") as f:
+    data = tomllib.load(f)
+if "books" not in data:
+    print("null")
+    sys.exit(0)
+books = data["books"]
+if not isinstance(books, list) or not all(isinstance(b, str) for b in books):
+    print("Error: lockfile books must be an array of strings", file=sys.stderr)
+    sys.exit(1)
+print(json.dumps(books))
 PY
 }
 
@@ -78,13 +100,18 @@ fi
 
 SKILLS_TAG=""
 LOOPS_TAG=""
+BOOKS_JSON="null"
 if [ -n "$LOCK_SRC" ]; then
     SKILLS_TAG="$(lockfile_get "$LOCK_SRC" skills || true)"
     LOOPS_TAG="$(lockfile_get "$LOCK_SRC" loops || true)"
+    BOOKS_JSON="$(lockfile_books_json "$LOCK_SRC")"
 fi
 if [ -z "$SKILLS_TAG" ] || [ -z "$LOOPS_TAG" ]; then
     echo "Error: lockfile missing skills/loops tags (looked at target, $ROOT/lockfile.toml, lockfile.toml.example)" >&2
     exit 1
+fi
+if [ "$BOOKS_JSON" != "null" ]; then
+    echo "  Books: $BOOKS_JSON"
 fi
 
 PIN_DIRS=()
@@ -110,6 +137,8 @@ resolve_tree() {
     fetch_pin "$url" "$tag"
 }
 
+# Copies every skill directory that has a SKILL.md. Does not read lockfile
+# `books`. That key is a disclosure filter, not a copy filter.
 copy_skill_dirs() {
     local src="$1"
     [ -d "$src/.agents/skills" ] || return 0

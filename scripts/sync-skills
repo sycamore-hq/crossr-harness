@@ -73,10 +73,11 @@ if [ -z "$SOURCE" ]; then
     fi
     if [ -n "$lock" ]; then
         tag="$(python3 - "$lock" <<'PY'
-import re, sys
-text = open(sys.argv[1]).read()
-m = re.search(r'(?m)^\s*skills\s*=\s*"([^"]+)"', text)
-sys.exit(1) if not m else print(m.group(1))
+import sys, tomllib
+with open(sys.argv[1], "rb") as f:
+    data = tomllib.load(f)
+val = data.get("skills")
+sys.exit(1) if not isinstance(val, str) or not val else print(val)
 PY
 )" || true
         if [ -n "${tag:-}" ]; then
