@@ -8,8 +8,7 @@
 #   ./scripts/verify-docs --html         # Run checks + generate self-contained HTML report
 #
 # Public skill catalog SSOT: docs/public-skills.json
-# Site skill count/pill equality is enforced when the site claims a skill count
-# or lists skill pills (T-5 / marketing). README and book catalog must always
+# Site copy lives in crossr-web-landing. README and book catalog must always
 # match the allowlist when those sections exist.
 #
 # The HTML report is written to docs/docs-verification-report.html

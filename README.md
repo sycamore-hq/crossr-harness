@@ -15,6 +15,8 @@ git clone https://github.com/sycamore-hq/crossr-harness.git
 ./crossr-harness/scripts/harness-bootstrap /path/to/your-project
 ```
 
+Requires `python3` >= 3.11 (`tomllib`).
+
 Copies catalog skills from the skills tag, loop conductors + personas + `/avril` `/axel` from the loops tag, and harness templates (`/status`, `HARNESS-SPEC.md`, dashboard). Then generates `.opencode/agent/` from `.agents/agents/` personas (`axel` and `avril` from their conductor personas). Never overwrites a `.opencode/` file that lacks the generated marker; marked files are regenerated every run. A target bootstrapped before this pin has an unmarked `avril.md` — delete it by hand before regen (never-overwrite). `status.md` stays hand-written. No git submodules.
 
 **Graphs (split-09)** live on [`crossr-loops`](https://github.com/sycamore-hq/crossr-loops/tree/main/graphs) (in pin `v1-one-law-consumers`). Bootstrap does not copy `graphs/`. Topology only — SKILL.md stays the law.

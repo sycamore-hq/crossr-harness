@@ -272,7 +272,7 @@ The book is disclosed per project. A consumer `lockfile.toml` may carry `books =
 - Adversaries load the gate card + `<book>/RULES.md`. Never `<book>/references/`
 - Test verifier: rules tagged `test` in that same `RULES.md`
 
-When more than one book is listed, the session discloses which applies per PBI. If unspecified, stop and ask. Do not default to first-listed. When `books` is missing or empty, stop and ask.
+When more than one book is listed, the session discloses which applies per PBI. If unspecified, stop and ask. Do not default to first-listed. When a language consumer's `books` is missing or empty, stop and ask.
 
 An explicit `books = []` on a consumer lockfile fails `verify-skill-refs` when a graph has `requires.book: true`. Absence of the key is not a failure. Loops is not a language consumer and does not carry `books`.
 
