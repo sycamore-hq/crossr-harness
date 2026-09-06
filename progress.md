@@ -80,7 +80,7 @@ shape of `gan-layer-separation` here, in loops, and in skills.
   itself as the outstanding item.
 - Defaults already map `in_progress` → active. No `dashboard.config.json`.
 - Contract: `docs/status-dashboard-contract.md`.
-- Did not close `gan-layer-separation`. That is `gan-close-4b` (work#6).
+- Did not close `gan-layer-separation` in that commit. That stayed `gan-close-4b` (work#6).
 
 ## Verification Status
 - `python3 test/test_status_dashboard.py` — 9 tests OK
@@ -91,3 +91,7 @@ shape of `gan-layer-separation` here, in loops, and in skills.
   - skills: was 94/0/0, now 94/1/0 (gan-layer-separation active)
   Record: 3 in_progress phases, 0 in_progress commits, 102 completed commits.
 - Board: none (pinto not installed). Defaults map `in_progress` → active; no config file.
+
+## gan-layer-separation — close 0–4b (COMPLETED)
+
+Every recorded child commit was already completed (`pr2b`, `pr3b`, `pr4-pin`). Phase left `in_progress`, so the dashboard counted an active phase with 0 in-progress commits. Status is `completed`. 5e is a later unit and already on main.

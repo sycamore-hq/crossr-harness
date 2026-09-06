@@ -1,6 +1,6 @@
 {
   "gan-layer-separation": {
-    "status": "in_progress",
+    "status": "completed",
     "commits": [
       {
         "id": "pr2b",
