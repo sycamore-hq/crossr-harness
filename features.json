@@ -37,6 +37,16 @@
           "stale_unmarked_avril_remedy_documented",
           "smoke_process_only_v1_cards"
         ]
+      },
+      {
+        "id": "pr6c",
+        "title": "HARNESS-SPEC plan-first gates and load set",
+        "status": "completed",
+        "features": [
+          "plan-gate-before-diff",
+          "plan-writer-plan-time-load",
+          "architect-plan-time"
+        ]
       }
     ]
   },
