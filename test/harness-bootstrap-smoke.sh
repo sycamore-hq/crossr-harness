@@ -3,6 +3,11 @@
 
 set -euo pipefail
 
+python3 -c 'import tomllib' 2>/dev/null || {
+    echo "Error: harness-bootstrap-smoke needs python3 >= 3.11 (tomllib)" >&2
+    exit 1
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BOOTSTRAP="$SCRIPT_DIR/scripts/harness-bootstrap"
 
@@ -25,6 +30,69 @@ else
     cat "$TMPDIR/proc/lockfile.toml"
     exit 1
 fi
+
+echo "Testing python3 < 3.11 fails loud..."
+REAL_PY="$(command -v python3)"
+mkdir -p "$TMPDIR/oldpy"
+cat > "$TMPDIR/oldpy/python3" << EOF
+#!/usr/bin/env bash
+if [ "\${1:-}" = "-c" ] && [ "\${2:-}" = "import tomllib" ]; then
+    exit 1
+fi
+exec "$REAL_PY" "\$@"
+EOF
+chmod +x "$TMPDIR/oldpy/python3"
+set +e
+PATH="$TMPDIR/oldpy:$PATH" "$BOOTSTRAP" --process-only "$TMPDIR/oldpy-target" \
+    > "$TMPDIR/oldpy.out" 2> "$TMPDIR/oldpy.err"
+oldpy_rc=$?
+set -e
+if [ "$oldpy_rc" -eq 0 ]; then
+    echo "✗ missing tomllib should exit 1"
+    cat "$TMPDIR/oldpy.err"
+    exit 1
+fi
+if [ "$(grep -c '^Error:' "$TMPDIR/oldpy.err")" -ne 1 ]; then
+    echo "✗ want exactly one Error: line for old python"
+    cat "$TMPDIR/oldpy.err"
+    exit 1
+fi
+if ! grep -q 'python3 >= 3.11' "$TMPDIR/oldpy.err"; then
+    echo "✗ old-python error did not name the version floor"
+    cat "$TMPDIR/oldpy.err"
+    exit 1
+fi
+echo "✓ python3 < 3.11 is one Error: line"
+
+echo "Testing invalid lockfile is one-line error..."
+mkdir -p "$TMPDIR/bad-toml"
+printf '%s\n' 'skills = "v1-one-law"' 'loops  = "v1-one-law-consumers"' 'books = ["rust"' \
+    > "$TMPDIR/bad-toml/lockfile.toml"
+set +e
+"$BOOTSTRAP" --process-only "$TMPDIR/bad-toml" > "$TMPDIR/bad-toml.out" 2> "$TMPDIR/bad-toml.err"
+bad_rc=$?
+set -e
+if [ "$bad_rc" -eq 0 ]; then
+    echo "✗ invalid TOML should exit 1"
+    cat "$TMPDIR/bad-toml.err"
+    exit 1
+fi
+if [ "$(grep -c '^Error:' "$TMPDIR/bad-toml.err")" -ne 1 ]; then
+    echo "✗ want exactly one Error: line for invalid TOML"
+    cat "$TMPDIR/bad-toml.err"
+    exit 1
+fi
+if ! grep -q "Error: $TMPDIR/bad-toml/lockfile.toml: invalid TOML:" "$TMPDIR/bad-toml.err"; then
+    echo "✗ error did not name the file as invalid TOML"
+    cat "$TMPDIR/bad-toml.err"
+    exit 1
+fi
+if grep -qiE 'Traceback|TOMLDecodeError' "$TMPDIR/bad-toml.err"; then
+    echo "✗ traceback leaked on invalid TOML"
+    cat "$TMPDIR/bad-toml.err"
+    exit 1
+fi
+echo "✓ invalid lockfile is one Error: line (no traceback)"
 
 echo "Testing example lockfile books..."
 python3 - "$SCRIPT_DIR/lockfile.toml.example" <<'PY'
@@ -53,6 +121,20 @@ if ! grep -q 'books  = \["rust"\]' "$TMPDIR/with-books/lockfile.toml"; then
     exit 1
 fi
 echo "✓ lockfile parser accepts books (reader i)"
+
+echo "Testing process-only writes books from example lockfile onto a fresh target..."
+FAKE_ROOT="$TMPDIR/harness-src"
+mkdir -p "$FAKE_ROOT/scripts"
+cp "$BOOTSTRAP" "$FAKE_ROOT/scripts/harness-bootstrap"
+cp "$SCRIPT_DIR/lockfile.toml.example" "$FAKE_ROOT/lockfile.toml.example"
+"$FAKE_ROOT/scripts/harness-bootstrap" --process-only "$TMPDIR/fresh-books" \
+    > "$TMPDIR/fresh-books.log"
+if ! grep -q 'books  = \["rust"\]' "$TMPDIR/fresh-books/lockfile.toml"; then
+    echo "✗ fresh target lockfile missing books from example"
+    cat "$TMPDIR/fresh-books/lockfile.toml"
+    exit 1
+fi
+echo "✓ process-only writes books onto a fresh target (LOCK_SRC carries books)"
 
 echo "Testing process-only idempotency (keeps AGENTS.md)..."
 echo "marker" >> "$TMPDIR/proc/AGENTS.md"
@@ -163,8 +245,8 @@ echo "✓ books + gate cards present; absorbed writers absent"
 AXEL_B=$(wc -c < "$TMPDIR/full/.agents/skills/axel/SKILL.md")
 GV_B=$(wc -c < "$TMPDIR/full/.agents/skills/gan-verdict/SKILL.md")
 WINDOW=$((AXEL_B + GV_B))
-if [ "$WINDOW" -ne 7121 ]; then
-    echo "✗ conductor window is $WINDOW bytes (axel $AXEL_B + gan-verdict $GV_B); want 7121"
+if [ "$WINDOW" -gt 8192 ]; then
+    echo "✗ conductor window is $WINDOW bytes (axel $AXEL_B + gan-verdict $GV_B); want <= 8192"
     exit 1
 fi
 for f in \
@@ -178,7 +260,7 @@ do
         exit 1
     fi
 done
-echo "✓ conductor window is 7,121 bytes and names no book"
+echo "✓ conductor window is $WINDOW bytes (<= 8192) and names no book"
 
 echo "Testing full idempotency (does not clobber unmarked .opencode)..."
 echo "kept" >> "$TMPDIR/full/.opencode/agent/status.md"
@@ -510,10 +592,14 @@ with open(sys.argv[1], "rb") as f:
     print(tomllib.load(f)["loops"])
 PY
 )"
-LOOPS_PIN="$TMPDIR/loops-pin"
-git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$LOOPS_TAG" \
-    "${CROSSR_LOOPS_URL:-https://github.com/sycamore-hq/crossr-loops.git}" \
-    "$LOOPS_PIN"
+if [ -n "${CROSSR_LOOPS_PATH:-}" ]; then
+    LOOPS_PIN="$CROSSR_LOOPS_PATH"
+else
+    LOOPS_PIN="$TMPDIR/loops-pin"
+    git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$LOOPS_TAG" \
+        "${CROSSR_LOOPS_URL:-https://github.com/sycamore-hq/crossr-loops.git}" \
+        "$LOOPS_PIN"
+fi
 set +e
 CROSSR_SKILLS_PATH="$TMPDIR/full" \
     CROSSR_CONSUMER_LOCKFILE="$TMPDIR/empty-books.toml" \

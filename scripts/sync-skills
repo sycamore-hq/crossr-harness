@@ -36,6 +36,7 @@ Copy canonical skills into this project's .agents/skills/.
 
 If no path is given, reads lockfile.toml (skills = "<tag>") and clones
 sycamore-hq/crossr-skills at that tag. CROSSR_SKILLS_PATH overrides.
+Requires python3 >= 3.11 (tomllib) when reading the lockfile.
 
 Recommended:
   ./scripts/sync-skills                  # from lockfile pin
@@ -72,10 +73,19 @@ if [ -z "$SOURCE" ]; then
         lock="$(cd "$(dirname "$0")/.." && pwd)/lockfile.toml.example"
     fi
     if [ -n "$lock" ]; then
+        python3 -c 'import tomllib' 2>/dev/null || {
+            echo "Error: sync-skills needs python3 >= 3.11 (tomllib)" >&2
+            exit 1
+        }
         tag="$(python3 - "$lock" <<'PY'
 import sys, tomllib
-with open(sys.argv[1], "rb") as f:
-    data = tomllib.load(f)
+path = sys.argv[1]
+try:
+    with open(path, "rb") as f:
+        data = tomllib.load(f)
+except tomllib.TOMLDecodeError as e:
+    print(f"Error: {path}: invalid TOML: {e}", file=sys.stderr)
+    sys.exit(1)
 val = data.get("skills")
 sys.exit(1) if not isinstance(val, str) or not val else print(val)
 PY

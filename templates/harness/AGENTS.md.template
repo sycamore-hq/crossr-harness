@@ -8,7 +8,7 @@
 
 Pinned from the harness lockfile (`skills = <tag>`, `loops = <tag>`). Catalog skills live in `.agents/skills/`. Loop conductors come from `crossr-loops`.
 
-Lockfile `books` discloses the language book at session start (AXEL pre-flight step 4).
+Lockfile `books` discloses the language book at session start (AXEL pre-flight step 4). Absence of the key means no book applies.
 
 - `code-writer` + the disclosed book (card + the references for the situation)
 - `agent-harness`

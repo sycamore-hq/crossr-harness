@@ -28,6 +28,7 @@
 # only. Product-repo dogfood. Does not copy skills.
 #
 # Overrides: CROSSR_SKILLS_PATH, CROSSR_LOOPS_PATH (skip clone).
+# Requires python3 >= 3.11 (stdlib tomllib).
 
 set -euo pipefail
 
@@ -38,7 +39,7 @@ LOOPS_URL="${CROSSR_LOOPS_URL:-https://github.com/sycamore-hq/crossr-loops.git}"
 PROCESS_ONLY=false
 TARGET=""
 usage() {
-    sed -n '2,30p' "$0"
+    sed -n '2,31p' "$0"
 }
 
 while [ $# -gt 0 ]; do
@@ -58,26 +59,27 @@ TARGET="$(cd "$TARGET" && pwd)"
 echo "→ Bootstrapping harness in: $TARGET"
 $PROCESS_ONLY && echo "  (process-only: tracking files, no skill copy)"
 
-lockfile_get() {
-    python3 - "$1" "$2" <<'PY'
-import sys, tomllib
-path, key = sys.argv[1], sys.argv[2]
-with open(path, "rb") as f:
-    data = tomllib.load(f)
-val = data.get(key)
-if not isinstance(val, str) or not val:
-    sys.exit(1)
-print(val)
-PY
+python3 -c 'import tomllib' 2>/dev/null || {
+    echo "Error: harness-bootstrap needs python3 >= 3.11 (tomllib)" >&2
+    exit 1
 }
 
-# Prints JSON: null when the key is absent, else the array. Exit 1 when the
-# key is present but not an array of strings.
-lockfile_books_json() {
+# One parse. Three lines: skills, loops, books-json (null when absent).
+# Decode errors and a bad books type exit 1 with one Error: line, no traceback.
+lockfile_read() {
     python3 - "$1" <<'PY'
 import json, sys, tomllib
-with open(sys.argv[1], "rb") as f:
-    data = tomllib.load(f)
+path = sys.argv[1]
+try:
+    with open(path, "rb") as f:
+        data = tomllib.load(f)
+except tomllib.TOMLDecodeError as e:
+    print(f"Error: {path}: invalid TOML: {e}", file=sys.stderr)
+    sys.exit(1)
+skills = data.get("skills")
+loops = data.get("loops")
+print(skills if isinstance(skills, str) else "")
+print(loops if isinstance(loops, str) else "")
 if "books" not in data:
     print("null")
     sys.exit(0)
@@ -102,9 +104,10 @@ SKILLS_TAG=""
 LOOPS_TAG=""
 BOOKS_JSON="null"
 if [ -n "$LOCK_SRC" ]; then
-    SKILLS_TAG="$(lockfile_get "$LOCK_SRC" skills || true)"
-    LOOPS_TAG="$(lockfile_get "$LOCK_SRC" loops || true)"
-    BOOKS_JSON="$(lockfile_books_json "$LOCK_SRC")"
+    _lock="$(lockfile_read "$LOCK_SRC")" || exit 1
+    SKILLS_TAG="$(printf '%s\n' "$_lock" | sed -n '1p')"
+    LOOPS_TAG="$(printf '%s\n' "$_lock" | sed -n '2p')"
+    BOOKS_JSON="$(printf '%s\n' "$_lock" | sed -n '3p')"
 fi
 if [ -z "$SKILLS_TAG" ] || [ -z "$LOOPS_TAG" ]; then
     echo "Error: lockfile missing skills/loops tags (looked at target, $ROOT/lockfile.toml, lockfile.toml.example)" >&2
@@ -337,13 +340,18 @@ else
 fi
 
 if [ ! -f "$TARGET/lockfile.toml" ]; then
-    cat > "$TARGET/lockfile.toml" << EOF
+    {
+        cat <<EOF
 # Pins consumed by harness-bootstrap / sync-skills.
 # Not a third tracker — features.json remains the work log. No git submodules.
 skills = "${SKILLS_TAG}"
 loops  = "${LOOPS_TAG}"
 EOF
-    echo "  + Created lockfile.toml (skills=${SKILLS_TAG} loops=${LOOPS_TAG})"
+        if [ "$BOOKS_JSON" != "null" ]; then
+            echo "books  = ${BOOKS_JSON}"
+        fi
+    } > "$TARGET/lockfile.toml"
+    echo "  + Created lockfile.toml (skills=${SKILLS_TAG} loops=${LOOPS_TAG} books=${BOOKS_JSON})"
 else
     echo "  = Kept existing lockfile.toml"
 fi
