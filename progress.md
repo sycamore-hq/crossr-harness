@@ -96,6 +96,18 @@ shape of `gan-layer-separation` here, in loops, and in skills.
 
 Every recorded child commit was already completed (`pr2b`, `pr3b`, `pr4-pin`). Phase left `in_progress`, so the dashboard counted an active phase with 0 in-progress commits. Status is `completed`.
 
+### gan-layer-separation — PR 6c (COMPLETED)
+
+HARNESS-SPEC discloses the plan-first chain. Per
+`docs/plans/gan-layer-separation-plan.md` §4 PR 6 / work#11. Cycle law
+stays in crossr-loops.
+
+- §6: plan gate (`audit-plan` then `architecture` at plan time) before the
+  diff gate (mechanical → `testing` → `code-review`). Code-time architect
+  only on an unsatisfiable claim.
+- §11: Generator (plan) loads `plan-writer`; Generator (execute) loads
+  `code-writer`. The old "Reviewer → Tester → Architect" slogan is gone.
+
 ## Verification Status
 - `python3 test/test_status_dashboard.py` — 10 tests OK (1 skipped: no in_progress phase left to prove against)
 - `python3 test/test_features_phase.py` — 1 test OK

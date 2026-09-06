@@ -45,7 +45,7 @@ Crossr-skills (`.agents/skills/`) are the reusable capability layer. This spec i
    Security and correctness gates (especially mTLS CN-hostname binding, authz checks, etc.) must be enforced *before* any database lookup or side-effecting operation.
 
 6. **Self-Verifying Handovers**  
-   No session ends without tests, clippy, reviewer/tester/architect sign-off (GAN), and clean git state + updated artifacts.
+   No session ends without tests, clippy, plan-architect / tester / reviewer sign-off (GAN), and clean git state + updated artifacts.
 
 ---
 
@@ -102,7 +102,7 @@ Human-readable, commit-narrative log. Structure:
 
 ## Verification Status
 - Tooling checks: PASSED
-- Adversary reviews: PASSED (reviewer + tester + architect)
+- Adversary reviews: PASSED (plan architect + tester + reviewer)
 ```
 
 Append after every commit. Never rewrite history.
@@ -190,14 +190,24 @@ This pattern is now a first-class recommendation in the harness.
 
 ## 6. Verification Gates (Non-Negotiable)
 
-Before a commit is considered done:
+Gates are ordered by blast radius. The plan is blessed before code exists.
 
-1. Self-critique + full test matrix + clippy (pedantic) + fmt
-2. `code-review` ruthless pass
-3. `testing` coverage + exhaustive error path pass
-4. `architecture` architectural sign-off
+**Plan gate** (before implementation):
 
-Only after all four layers pass is the commit + artifacts updated.
+1. Mechanical plan audit (`audit-plan`) — bidirectional AC↔claim coverage, judgment quota, id integrity. Red never costs an LLM token.
+2. `architecture` at plan time — underspecification is a REJECT. Implementation does not start without BLESS.
+
+The blessed plan is committed before the first implementation commit.
+
+**Diff gate** (each implementation commit):
+
+1. Mechanical: fmt · clippy · build · test. Red → generator, no LLM.
+2. `testing` — AC coverage + zero regressions
+3. `code-review` — plan/AC conformance + one capped unanticipated-risk pass
+
+`architecture` at code time only on an unsatisfiable claim id. It is not the default last diff gate.
+
+Only after the applicable gates pass is the commit + artifacts updated.
 
 ---
 
@@ -264,17 +274,18 @@ The canonical trio for quality enforcement is:
 - `tester-agent`
 - `architect-agent`
 
-Projects are encouraged to run the full GAN sequence (Reviewer → Tester → Architect) on significant changes. See `.agents/agents/README.md` for the recommended invocation pattern. Loop personas (AVRIL quartet, AXEL conductor, BRICK stage agents) are supplied by [`crossr-loops`](https://github.com/sycamore-hq/crossr-loops).
+Projects are encouraged to run the plan-first GAN (Architect at plan time, then Tester → Reviewer on the diff) on significant changes. See `.agents/agents/README.md` for the recommended invocation pattern. Loop personas (AVRIL quartet, AXEL conductor, BRICK stage agents) are supplied by [`crossr-loops`](https://github.com/sycamore-hq/crossr-loops).
 
 The book is disclosed per project. A consumer `lockfile.toml` may carry `books = ["rust"]` (or `["ocaml"]`, `["rust", "ts"]`, ...). The lockfile parser accepts that key. AXEL pre-flight step 4 reads it and states the language stack:
 
-- Generator loads `code-writer` + the disclosed book (card + the references for the situation) + domain skills
+- Generator (plan phase) loads `plan-writer` + the disclosed book's Rules projection + the PBI. Do not load `code-writer`.
+- Generator (execute phase) loads `code-writer` + the disclosed book (card + the references for the situation) + domain skills
 - Adversaries load the gate card + `<book>/RULES.md`. Never `<book>/references/`
 - Test verifier: rules tagged `test` in that same `RULES.md`
 
 When more than one book is listed, the session discloses which applies per PBI. If unspecified, stop and ask. Do not default to first-listed. When a language consumer's `books` is missing or empty, stop and ask.
 
-A remote that does not declare `books` (loops, this harness) loads no book: `code-writer` alone for the generator, the gate card alone for adversaries; the test verifier has no `RULES.md` to read.
+A remote that does not declare `books` (loops, this harness) loads no book: `plan-writer` alone at plan time, `code-writer` alone at execute time, the gate card alone for adversaries; the test verifier has no `RULES.md` to read.
 
 An explicit `books = []` on a consumer lockfile fails `verify-skill-refs` when a graph has `requires.book: true`. Absence of the key is not a failure. Loops is not a language consumer and does not carry `books`.
 
