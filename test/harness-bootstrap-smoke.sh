@@ -94,6 +94,59 @@ if grep -qiE 'Traceback|TOMLDecodeError' "$TMPDIR/bad-toml.err"; then
 fi
 echo "✓ invalid lockfile is one Error: line (no traceback)"
 
+echo "Testing sync-skills invalid TOML is one-line error..."
+SYNC="$SCRIPT_DIR/scripts/sync-skills"
+mkdir -p "$TMPDIR/sync-bad"
+printf '%s\n' 'skills = "v1-one-law"' 'loops  = "v1-one-law-consumers"' 'books = ["rust"' \
+    > "$TMPDIR/sync-bad/lockfile.toml"
+set +e
+(
+    unset CROSSR_SKILLS_PATH
+    cd "$TMPDIR/sync-bad"
+    "$SYNC"
+) > "$TMPDIR/sync-bad.log" 2>&1
+sync_bad_rc=$?
+set -e
+if [ "$sync_bad_rc" -eq 0 ]; then
+    echo "✗ sync-skills invalid TOML should exit 1"
+    cat "$TMPDIR/sync-bad.log"
+    exit 1
+fi
+if [ "$(grep -c '^Error:' "$TMPDIR/sync-bad.log")" -ne 1 ]; then
+    echo "✗ sync-skills want exactly one Error: line for invalid TOML"
+    cat "$TMPDIR/sync-bad.log"
+    exit 1
+fi
+if ! grep -q 'invalid TOML:' "$TMPDIR/sync-bad.log"; then
+    echo "✗ sync-skills error did not name invalid TOML"
+    cat "$TMPDIR/sync-bad.log"
+    exit 1
+fi
+echo "✓ sync-skills invalid lockfile is one Error: line"
+
+echo "Testing sync-skills missing skills key..."
+mkdir -p "$TMPDIR/sync-noskills"
+printf '%s\n' 'loops  = "v1-one-law-consumers"' > "$TMPDIR/sync-noskills/lockfile.toml"
+set +e
+(
+    unset CROSSR_SKILLS_PATH
+    cd "$TMPDIR/sync-noskills"
+    "$SYNC"
+) > "$TMPDIR/sync-noskills.log" 2>&1
+sync_ns_rc=$?
+set -e
+if [ "$sync_ns_rc" -eq 0 ]; then
+    echo "✗ sync-skills missing skills should exit 1"
+    cat "$TMPDIR/sync-noskills.log"
+    exit 1
+fi
+if ! grep -q 'No crossr-skills path or lockfile skills pin' "$TMPDIR/sync-noskills.log"; then
+    echo "✗ sync-skills missing skills did not reach the existing path message"
+    cat "$TMPDIR/sync-noskills.log"
+    exit 1
+fi
+echo "✓ sync-skills missing skills key reaches No crossr-skills path"
+
 echo "Testing example lockfile books..."
 python3 - "$SCRIPT_DIR/lockfile.toml.example" <<'PY'
 import sys, tomllib
