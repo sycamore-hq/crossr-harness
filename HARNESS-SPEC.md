@@ -229,7 +229,7 @@ loops  = "<tag>"
 books  = ["rust"]     # disclosed language books; ["ocaml"], ["rust", "ts"], ...
 ```
 
-`books` is a disclosure filter, not a copy filter. `harness-bootstrap` copies every skill directory that has a `SKILL.md` and does not read `books`. Do not later turn bootstrap into a partial copy. Language consumers declare `books`; loops and this remote do not (absence of the key is not a failure). See §11 for how a session reads the list.
+`books` is a disclosure filter, not a copy filter. `harness-bootstrap` copies every skill directory that has a `SKILL.md` and does not read `books`. Do not later turn bootstrap into a partial copy. Language consumers declare `books`; loops and this remote do not (absence of the key is not a failure and loads no book). See §11 for how a session reads the list.
 
 Bootstrap copies catalog skills from the skills tag, loop conductors + personas + `/avril` `/axel` from the loops tag, and harness templates from this remote, then generates `.opencode/agent/` from the copied personas. Never overwrites a `.opencode/` file that lacks the generated marker; marked files are regenerated every run. No git submodules. `--process-only` writes tracking files without copying skills (product-repo dogfood).
 
@@ -273,6 +273,8 @@ The book is disclosed per project. A consumer `lockfile.toml` may carry `books =
 - Test verifier: rules tagged `test` in that same `RULES.md`
 
 When more than one book is listed, the session discloses which applies per PBI. If unspecified, stop and ask. Do not default to first-listed. When a language consumer's `books` is missing or empty, stop and ask.
+
+A remote that does not declare `books` (loops, this harness) loads no book: `code-writer` alone for the generator, the gate card alone for adversaries; the test verifier has no `RULES.md` to read.
 
 An explicit `books = []` on a consumer lockfile fails `verify-skill-refs` when a graph has `requires.book: true`. Absence of the key is not a failure. Loops is not a language consumer and does not carry `books`.
 

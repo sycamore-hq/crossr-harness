@@ -14,6 +14,6 @@ Lockfile `books` discloses the language book at session start (AXEL pre-flight s
 - `agent-harness`
 - [domain skills the harness discloses]
 
-Adversaries load the gate card (`code-review`, `testing`, `architecture`) plus `<book>/RULES.md` only. Multi-book: disclose which book applies per PBI; if unspecified, stop and ask.
+Adversaries load the gate card (`code-review`, `testing`, `architecture`) plus `<book>/RULES.md` only. With no book, the gate card alone. Multi-book: disclose which book applies per PBI; if unspecified, stop and ask.
 
 See [HARNESS-SPEC.md](https://github.com/sycamore-hq/crossr-harness/blob/main/HARNESS-SPEC.md) for the full harness rules, artifacts, and rituals.

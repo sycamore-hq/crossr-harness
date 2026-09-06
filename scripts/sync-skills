@@ -85,11 +85,11 @@ try:
         data = tomllib.load(f)
 except tomllib.TOMLDecodeError as e:
     print(f"Error: {path}: invalid TOML: {e}", file=sys.stderr)
-    sys.exit(1)
+    sys.exit(2)
 val = data.get("skills")
 sys.exit(1) if not isinstance(val, str) or not val else print(val)
 PY
-)" || true
+)" || { [ $? -eq 2 ] && exit 1; true; }
         if [ -n "${tag:-}" ]; then
             SOURCE="$(mktemp -d "${TMPDIR:-/tmp}/crossr-skills-pin.XXXXXX")"
             trap 'rm -rf "$SOURCE"' EXIT
