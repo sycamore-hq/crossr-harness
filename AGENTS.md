@@ -8,9 +8,12 @@
 
 Pinned from the harness lockfile (`skills = <tag>`, `loops = <tag>`). Catalog skills live in `.agents/skills/`. Loop conductors come from `crossr-loops`.
 
-- `code-writer`
-- `rust-code-writer`
+Lockfile `books` discloses the language book at session start (AXEL pre-flight step 4).
+
+- `code-writer` + the disclosed book (card + the references for the situation)
 - `agent-harness`
-- [add project-specific skills here]
+- [domain skills the harness discloses]
+
+Adversaries load the gate card (`code-review`, `testing`, `architecture`) plus `<book>/RULES.md` only. Multi-book: disclose which book applies per PBI; if unspecified, stop and ask.
 
 See [HARNESS-SPEC.md](https://github.com/sycamore-hq/crossr-harness/blob/main/HARNESS-SPEC.md) for the full harness rules, artifacts, and rituals.

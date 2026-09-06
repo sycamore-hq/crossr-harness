@@ -193,8 +193,8 @@ This pattern is now a first-class recommendation in the harness.
 Before a commit is considered done:
 
 1. Self-critique + full test matrix + clippy (pedantic) + fmt
-2. `rust-code-reviewer` ruthless pass
-3. `rust-code-tester` coverage + exhaustive error path pass
+2. `code-review` ruthless pass
+3. `testing` coverage + exhaustive error path pass
 4. `architecture` architectural sign-off
 
 Only after all four layers pass is the commit + artifacts updated.
@@ -226,7 +226,10 @@ Pins live in `lockfile.toml` (not a third tracker — `features.json` remains th
 ```
 skills = "<tag>"
 loops  = "<tag>"
+books  = ["rust"]     # disclosed language books; ["ocaml"], ["rust", "ts"], ...
 ```
+
+`books` is a disclosure filter, not a copy filter. `harness-bootstrap` copies every skill directory that has a `SKILL.md` and does not read `books`. Do not later turn bootstrap into a partial copy. Language consumers declare `books`; loops and this remote do not (absence of the key is not a failure). See §11 for how a session reads the list.
 
 Bootstrap copies catalog skills from the skills tag, loop conductors + personas + `/avril` `/axel` from the loops tag, and harness templates from this remote, then generates `.opencode/agent/` from the copied personas. Never overwrites a `.opencode/` file that lacks the generated marker; marked files are regenerated every run. No git submodules. `--process-only` writes tracking files without copying skills (product-repo dogfood).
 
@@ -263,6 +266,16 @@ The canonical trio for quality enforcement is:
 
 Projects are encouraged to run the full GAN sequence (Reviewer → Tester → Architect) on significant changes. See `.agents/agents/README.md` for the recommended invocation pattern. Loop personas (AVRIL quartet, AXEL conductor, BRICK stage agents) are supplied by [`crossr-loops`](https://github.com/sycamore-hq/crossr-loops).
 
+The book is disclosed per project. A consumer `lockfile.toml` may carry `books = ["rust"]` (or `["ocaml"]`, `["rust", "ts"]`, ...). The lockfile parser accepts that key. AXEL pre-flight step 4 reads it and states the language stack:
+
+- Generator loads `code-writer` + the disclosed book (card + the references for the situation) + domain skills
+- Adversaries load the gate card + `<book>/RULES.md`. Never `<book>/references/`
+- Test verifier: rules tagged `test` in that same `RULES.md`
+
+When more than one book is listed, the session discloses which applies per PBI. If unspecified, stop and ask. Do not default to first-listed. When `books` is missing or empty, stop and ask.
+
+An explicit `books = []` on a consumer lockfile fails `verify-skill-refs` when a graph has `requires.book: true`. Absence of the key is not a failure. Loops is not a language consumer and does not carry `books`.
+
 ## 12. Loops (supplied, not defined here)
 
 AVRIL, AXEL, and BRICK are **loop law**. They live in [`crossr-loops`](https://github.com/sycamore-hq/crossr-loops). This spec does not define their cycles, blessing language, or intake gates. A copy of this spec that still spells out AVRIL's adversary order or AXEL's per-PBI loop is stale — read the loops remote.
@@ -279,6 +292,7 @@ Bootstrap installs pinned tags of the two catalogs. Not a third tracker — `fea
 ```
 skills = <tag>
 loops  = <tag>
+books  = ["rust"]     # language consumers only; disclosure, not a copy filter
 ```
 
 Conductor SKILL.md and loop personas come from the loops pin. Capability SKILL.md comes from the skills pin. Never git submodules.
