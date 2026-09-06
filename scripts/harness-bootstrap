@@ -401,6 +401,21 @@ if [ -f "$ROOT/scripts/status-dashboard" ]; then
     fi
 fi
 
+if [ -f "$SKILLS_TREE/scripts/audit-plan" ]; then
+    mkdir -p "$TARGET/scripts"
+    if [ ! -f "$TARGET/scripts/audit-plan" ]; then
+        cp "$SKILLS_TREE/scripts/audit-plan" "$TARGET/scripts/audit-plan"
+        chmod +x "$TARGET/scripts/audit-plan"
+        echo "  + scripts/audit-plan"
+    else
+        echo "  = kept existing scripts/audit-plan"
+    fi
+    if [ -f "$TARGET/justfile" ] && ! grep -qE '^plan-audit' "$TARGET/justfile"; then
+        printf '\nplan-audit FILE:\n    @./scripts/audit-plan {{FILE}}\n' >> "$TARGET/justfile"
+        echo "  + justfile plan-audit"
+    fi
+fi
+
 echo ""
 echo "✓ Harness installed in $TARGET"
 echo "  Pins: skills=${SKILLS_TAG} loops=${LOOPS_TAG}"

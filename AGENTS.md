@@ -10,7 +10,7 @@ Pinned from the harness lockfile (`skills = <tag>`, `loops = <tag>`). Catalog sk
 
 Lockfile `books` discloses the language book at session start (AXEL pre-flight step 4). This remote is not a language consumer — absence of the key means no book applies.
 
-- Plan phase: `plan-writer` + the disclosed book's Rules (no `code-writer`)
+- Plan phase: `plan-writer` + `<book>/RULES.md` (no `code-writer`)
 - Execute phase: `code-writer` + the disclosed book (card + the references for the situation)
 - `agent-harness`
 - [domain skills the harness discloses]

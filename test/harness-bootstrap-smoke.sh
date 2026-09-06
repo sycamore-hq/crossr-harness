@@ -363,7 +363,10 @@ echo "✓ name mapping ($map_ok cases)"
 
 # Fixture trees — no network. Personas use the PR 2a role names.
 FIX="$TMPDIR/fix"
-mkdir -p "$FIX/skills/.agents/skills/dummy"
+mkdir -p "$FIX/skills/.agents/skills/dummy" "$FIX/skills/scripts"
+printf '%s\n' '#!/usr/bin/env python3' 'print("fixture audit-plan")' \
+    > "$FIX/skills/scripts/audit-plan"
+chmod +x "$FIX/skills/scripts/audit-plan"
 cat > "$FIX/skills/.agents/skills/dummy/SKILL.md" << 'EOF'
 ---
 name: dummy
@@ -453,6 +456,17 @@ fail_gen() { echo "✗ $1"; tail -20 "$FIX/boot1.log"; exit 1; }
 [ -f "$FIX/target/.opencode/agent/architect-agent.md" ] || fail_gen "missing architect-agent.md"
 [ -f "$FIX/target/.opencode/agent/override-agent.md" ] || fail_gen "missing override-agent.md"
 echo "✓ generation produced conductor + adversary agent files"
+
+if [ ! -f "$FIX/target/scripts/audit-plan" ]; then
+    echo "✗ fixture bootstrap missing scripts/audit-plan"
+    exit 1
+fi
+if ! grep -qE '^plan-audit' "$FIX/target/justfile"; then
+    echo "✗ fixture bootstrap missing just plan-audit"
+    cat "$FIX/target/justfile"
+    exit 1
+fi
+echo "✓ fixture bootstrap installed plan-audit script + recipe"
 
 for f in axel.md reviewer-agent.md tester-agent.md architect-agent.md override-agent.md; do
     if ! grep -qF "by harness-bootstrap — do not edit -->" "$FIX/target/.opencode/agent/$f"; then
