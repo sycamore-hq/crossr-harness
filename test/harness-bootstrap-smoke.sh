@@ -525,7 +525,7 @@ if [ "$empty_rc" -eq 0 ]; then
     cat "$TMPDIR/empty-books.log"
     exit 1
 fi
-if ! grep -q 'books = []' "$TMPDIR/empty-books.log"; then
+if ! grep -qF 'books = []' "$TMPDIR/empty-books.log"; then
     echo "✗ empty-books failure did not mention books = []"
     cat "$TMPDIR/empty-books.log"
     exit 1
