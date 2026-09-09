@@ -22,8 +22,8 @@ for f in AGENTS.md features.json progress.md justfile lockfile.toml; do
         exit 1
     fi
 done
-if grep -q 'skills = "v1-one-law"' "$TMPDIR/proc/lockfile.toml" \
-   && grep -q 'loops  = "v1-one-law-consumers"' "$TMPDIR/proc/lockfile.toml"; then
+if grep -q 'skills = "v1-packets"' "$TMPDIR/proc/lockfile.toml" \
+   && grep -q 'loops  = "v1-packets-consumers"' "$TMPDIR/proc/lockfile.toml"; then
     echo "✓ process-only wrote tracking files + pins"
 else
     echo "✗ process-only lockfile pins wrong"
@@ -66,7 +66,7 @@ echo "✓ python3 < 3.11 is one Error: line"
 
 echo "Testing invalid lockfile is one-line error..."
 mkdir -p "$TMPDIR/bad-toml"
-printf '%s\n' 'skills = "v1-one-law"' 'loops  = "v1-one-law-consumers"' 'books = ["rust"' \
+printf '%s\n' 'skills = "v1-packets"' 'loops  = "v1-packets-consumers"' 'books = ["rust"' \
     > "$TMPDIR/bad-toml/lockfile.toml"
 set +e
 "$BOOTSTRAP" --process-only "$TMPDIR/bad-toml" > "$TMPDIR/bad-toml.out" 2> "$TMPDIR/bad-toml.err"
@@ -97,7 +97,7 @@ echo "✓ invalid lockfile is one Error: line (no traceback)"
 echo "Testing sync-skills invalid TOML is one-line error..."
 SYNC="$SCRIPT_DIR/scripts/sync-skills"
 mkdir -p "$TMPDIR/sync-bad"
-printf '%s\n' 'skills = "v1-one-law"' 'loops  = "v1-one-law-consumers"' 'books = ["rust"' \
+printf '%s\n' 'skills = "v1-packets"' 'loops  = "v1-packets-consumers"' 'books = ["rust"' \
     > "$TMPDIR/sync-bad/lockfile.toml"
 set +e
 (
@@ -126,7 +126,7 @@ echo "✓ sync-skills invalid lockfile is one Error: line"
 
 echo "Testing sync-skills missing skills key..."
 mkdir -p "$TMPDIR/sync-noskills"
-printf '%s\n' 'loops  = "v1-one-law-consumers"' > "$TMPDIR/sync-noskills/lockfile.toml"
+printf '%s\n' 'loops  = "v1-packets-consumers"' > "$TMPDIR/sync-noskills/lockfile.toml"
 set +e
 (
     unset CROSSR_SKILLS_PATH
@@ -649,8 +649,8 @@ echo "✓ generator is deterministic and timestamp-free"
 
 echo "Testing requires.book + books = [] fails..."
 cat > "$TMPDIR/empty-books.toml" << 'EOF'
-skills = "v1-one-law"
-loops  = "v1-one-law-consumers"
+skills = "v1-packets"
+loops  = "v1-packets-consumers"
 books  = []
 EOF
 LOOPS_TAG="$(python3 - "$SCRIPT_DIR/lockfile.toml" <<'PY'
