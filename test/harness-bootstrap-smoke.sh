@@ -227,6 +227,18 @@ if [ ! -f "$TMPDIR/full/HARNESS-SPEC.md" ]; then
     echo "✗ missing HARNESS-SPEC.md"
     exit 1
 fi
+if [ ! -x "$TMPDIR/full/scripts/audit-packet" ]; then
+    echo "✗ missing scripts/audit-packet"
+    tail -20 "$TMPDIR/full.log"
+    exit 1
+fi
+if ! grep -qE '^packet-audit' "$TMPDIR/full/justfile"; then
+    echo "✗ full bootstrap missing just packet-audit"
+    cat "$TMPDIR/full/justfile"
+    exit 1
+fi
+echo "✓ full bootstrap installed packet-audit script + recipe"
+
 echo "✓ full bootstrap installed catalog + loops + harness files"
 
 if grep -q 'orphan persona' "$TMPDIR/full.log"; then
@@ -367,6 +379,9 @@ mkdir -p "$FIX/skills/.agents/skills/dummy" "$FIX/skills/scripts"
 printf '%s\n' '#!/usr/bin/env python3' 'print("fixture audit-plan")' \
     > "$FIX/skills/scripts/audit-plan"
 chmod +x "$FIX/skills/scripts/audit-plan"
+printf '%s\n' '#!/usr/bin/env python3' 'print("fixture audit-packet")' \
+    > "$FIX/skills/scripts/audit-packet"
+chmod +x "$FIX/skills/scripts/audit-packet"
 cat > "$FIX/skills/.agents/skills/dummy/SKILL.md" << 'EOF'
 ---
 name: dummy
@@ -467,6 +482,26 @@ if ! grep -qE '^plan-audit' "$FIX/target/justfile"; then
     exit 1
 fi
 echo "✓ fixture bootstrap installed plan-audit script + recipe"
+
+if [ ! -x "$FIX/target/scripts/audit-packet" ]; then
+    echo "✗ fixture bootstrap missing scripts/audit-packet"
+    exit 1
+fi
+if ! grep -qE '^packet-audit' "$FIX/target/justfile"; then
+    echo "✗ fixture bootstrap missing just packet-audit"
+    cat "$FIX/target/justfile"
+    exit 1
+fi
+echo "✓ fixture bootstrap installed packet-audit script + recipe"
+
+CROSSR_SKILLS_PATH="$FIX/skills" CROSSR_LOOPS_PATH="$FIX/loops" \
+    "$BOOTSTRAP" "$FIX/target" > "$FIX/boot-packet-keep.log"
+if ! grep -q 'kept existing scripts/audit-packet' "$FIX/boot-packet-keep.log"; then
+    echo "✗ second fixture run did not keep existing audit-packet"
+    cat "$FIX/boot-packet-keep.log"
+    exit 1
+fi
+echo "✓ second fixture run kept existing scripts/audit-packet"
 
 for f in axel.md reviewer-agent.md tester-agent.md architect-agent.md override-agent.md; do
     if ! grep -qF "by harness-bootstrap — do not edit -->" "$FIX/target/.opencode/agent/$f"; then
