@@ -7,6 +7,10 @@ python3 -c 'import tomllib' 2>/dev/null || {
     echo "Error: harness-bootstrap-smoke needs python3 >= 3.11 (tomllib)" >&2
     exit 1
 }
+command -v just > /dev/null 2>&1 || {
+    echo "Error: harness-bootstrap-smoke needs just on PATH (packet-audit recipe check)" >&2
+    exit 1
+}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BOOTSTRAP="$SCRIPT_DIR/scripts/harness-bootstrap"
