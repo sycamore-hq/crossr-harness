@@ -4,7 +4,7 @@ The CrossR project harness: `HARNESS-SPEC.md`, `harness-bootstrap`, the status d
 
 It installs pinned tags of [`crossr-skills`](https://github.com/sycamore-hq/crossr-skills) and [`crossr-loops`](https://github.com/sycamore-hq/crossr-loops). It does not own skill text or loop law.
 
-**Dogfood is live (PR 5e).** Pins: `skills = "v1-one-law"`, `loops = "v1-one-law-consumers"`. See [lockfile.toml](lockfile.toml).
+**Dogfood is live (PR 7c).** Pins: `skills = "v1-packets"`, `loops = "v1-packets-consumers"`. See [lockfile.toml](lockfile.toml).
 
 Charter: [`skills-loops-harness-split.html`](https://github.com/sycamore-hq/crossr-skills/blob/main/docs/plans/skills-loops-harness-split.html).
 
@@ -19,7 +19,7 @@ Requires `python3` >= 3.11 (`tomllib`).
 
 Copies catalog skills from the skills tag, loop conductors + personas + `/avril` `/axel` from the loops tag, and harness templates (`/status`, `HARNESS-SPEC.md`, dashboard). Then generates `.opencode/agent/` from `.agents/agents/` personas (`axel` and `avril` from their conductor personas). Never overwrites a `.opencode/` file that lacks the generated marker; marked files are regenerated every run. A target bootstrapped before this pin has an unmarked `avril.md` — delete it by hand before regen (never-overwrite). `status.md` stays hand-written. No git submodules.
 
-**Graphs (split-09)** live on [`crossr-loops`](https://github.com/sycamore-hq/crossr-loops/tree/main/graphs) (in pin `v1-one-law-consumers`). Bootstrap does not copy `graphs/`. Topology only — SKILL.md stays the law.
+**Graphs (split-09)** live on [`crossr-loops`](https://github.com/sycamore-hq/crossr-loops/tree/main/graphs) (in pin `v1-packets-consumers`). Bootstrap does not copy `graphs/`. Topology only — SKILL.md stays the law.
 
 `--process-only` writes `AGENTS.md`, `features.json`, `progress.md`, `justfile`, `lockfile.toml` without copying skills (how the three product remotes consume this harness).
 
@@ -28,8 +28,8 @@ Copies catalog skills from the skills tag, loop conductors + personas + `/avril`
 Not a third tracker. `features.json` remains the work log.
 
 ```
-skills = "v1-one-law"
-loops  = "v1-one-law-consumers"
+skills = "v1-packets"
+loops  = "v1-packets-consumers"
 books  = ["rust"]     # disclosed language books; optional on non-language remotes
 ```
 

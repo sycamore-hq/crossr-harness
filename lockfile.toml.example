@@ -1,10 +1,10 @@
 # Pins consumed by harness-bootstrap / sync-skills.
 # Not a third tracker — features.json remains the work log. No git submodules.
 # skills = one-law catalog (code-writer + language books + activity gates).
-# loops  = v1-one-law-consumers (neutral code-gan, requires.book).
+# loops  = v1-packets-consumers (packet ritual, AVRIL batch).
 # books  = disclosed language books. Disclosure filter, not a copy filter:
 #          bootstrap copies every skill directory that has a SKILL.md.
 
-skills = "v1-one-law"
-loops  = "v1-one-law-consumers"
+skills = "v1-packets"
+loops  = "v1-packets-consumers"
 books  = ["rust"]     # disclosed language books; ["ocaml"], ["rust", "ts"], ...
