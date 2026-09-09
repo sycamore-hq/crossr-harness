@@ -20,4 +20,9 @@ See [HARNESS-SPEC.md](https://github.com/sycamore-hq/crossr-harness/blob/main/HA
 
 ## Just targets
 
-- `just packet-audit`
+Installed by full bootstrap; absent on `--process-only` targets:
+
+- `just packet-audit` — `--process-only` remotes run `scripts/audit-packet` from the skills checkout directly
+- `just plan-audit`
+- `just status`
+- `just status-html`

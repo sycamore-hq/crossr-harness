@@ -426,7 +426,7 @@ if [ -f "$SKILLS_TREE/scripts/audit-packet" ]; then
         echo "  = kept existing scripts/audit-packet"
     fi
     if [ -f "$TARGET/justfile" ] && ! grep -qE '^packet-audit' "$TARGET/justfile"; then
-        printf '\npacket-audit MODE FILE:\n    @./scripts/audit-packet {{MODE}} {{FILE}}\n' >> "$TARGET/justfile"
+        printf '\npacket-audit MODE +ARGS:\n    @./scripts/audit-packet {{MODE}} {{ARGS}}\n' >> "$TARGET/justfile"
         echo "  + justfile packet-audit"
     fi
 fi
