@@ -201,6 +201,7 @@ The blessed plan is committed before the first implementation commit, at the pla
 
 **Diff gate** (each implementation commit):
 
+0. Packet audit (`just packet-audit brief <packet>`, installed by bootstrap from the skills pin) on every adversary delegation; `packet-audit verdict` on every reply. Red never reaches a persona.
 1. Mechanical: fmt · clippy · build · test. Red costs no LLM token.
 2. `testing` — AC coverage + zero regressions
 3. `code-review` — plan/AC conformance + one capped unanticipated-risk pass
@@ -302,6 +303,7 @@ The harness **discloses** (stratified parameters at activation):
 - Ritual (`just` targets, session start, verification matrix)
 - Dashboard command (`just status` / `just status-html` / `/status`)
 - Plan artifacts (default `docs/plans/pbi/<id>.plan.md`; committed before implementation, immutable once blessed)
+- Packet scratch path (default `${TMPDIR:-/tmp}/crossr-packets/<pbi-id>/`; never inside the repo, never committed)
 
 Bootstrap installs pinned tags of the two catalogs. Not a third tracker — `features.json` remains the work log:
 

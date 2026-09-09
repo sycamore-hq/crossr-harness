@@ -416,6 +416,21 @@ if [ -f "$SKILLS_TREE/scripts/audit-plan" ]; then
     fi
 fi
 
+if [ -f "$SKILLS_TREE/scripts/audit-packet" ]; then
+    mkdir -p "$TARGET/scripts"
+    if [ ! -f "$TARGET/scripts/audit-packet" ]; then
+        cp "$SKILLS_TREE/scripts/audit-packet" "$TARGET/scripts/audit-packet"
+        chmod +x "$TARGET/scripts/audit-packet"
+        echo "  + scripts/audit-packet"
+    else
+        echo "  = kept existing scripts/audit-packet"
+    fi
+    if [ -f "$TARGET/justfile" ] && ! grep -qE '^packet-audit' "$TARGET/justfile"; then
+        printf '\npacket-audit MODE FILE:\n    @./scripts/audit-packet {{MODE}} {{FILE}}\n' >> "$TARGET/justfile"
+        echo "  + justfile packet-audit"
+    fi
+fi
+
 echo ""
 echo "✓ Harness installed in $TARGET"
 echo "  Pins: skills=${SKILLS_TAG} loops=${LOOPS_TAG}"

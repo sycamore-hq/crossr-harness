@@ -47,6 +47,17 @@
           "plan-writer-plan-time-load",
           "architect-plan-time"
         ]
+      },
+      {
+        "id": "pr7c",
+        "title": "pins to v1-packets; install packet-audit; disclose scratch path",
+        "status": "completed",
+        "features": [
+          "lockfile_pins_v1_packets",
+          "bootstrap_audit_packet",
+          "packet_audit_diff_gate",
+          "packet_scratch_path_disclosed"
+        ]
       }
     ]
   },

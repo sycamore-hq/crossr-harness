@@ -108,7 +108,17 @@ stays in crossr-loops.
 - §11: Generator (plan) loads `plan-writer`; Generator (execute) loads
   `code-writer`. The old "Reviewer → Tester → Architect" slogan is gone.
 
+### gan-layer-separation — PR 7c (COMPLETED)
+
+Consumer pins reach the packet tags. Bootstrap installs
+`audit-packet` / `just packet-audit`. §6 names the packet
+audit in the diff gate; §12 discloses the scratch path
+(`${TMPDIR:-/tmp}/crossr-packets/<pbi-id>/`). Packets never
+land in the repo. Decisions 1, 11. Work#12.
+
 ## Verification Status
 - `python3 test/test_status_dashboard.py` — 10 tests OK (1 skipped: no in_progress phase left to prove against)
 - `python3 test/test_features_phase.py` — 1 test OK
-- `./scripts/status-dashboard` — completed 4, in progress 0, todo 0 (from features.json); was 4/1/0
+- `python3 test/test_pr6.py` — OK
+- `python3 test/test_pr7.py` — OK
+- `./test/harness-bootstrap-smoke.sh` — PASS against v1-packets / v1-packets-consumers
