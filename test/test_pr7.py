@@ -72,7 +72,7 @@ class LiveTree(unittest.TestCase):
             'if [ -f "$SKILLS_TREE/scripts/audit-packet" ]; then',
             'cp "$SKILLS_TREE/scripts/audit-packet" "$TARGET/scripts/audit-packet"',
             'echo "  = kept existing scripts/audit-packet"',
-            r"packet-audit MODE FILE:\n    @./scripts/audit-packet {{MODE}} {{FILE}}",
+            r"packet-audit MODE +ARGS:\n    @./scripts/audit-packet {{MODE}} {{ARGS}}",
         ):
             self.assertIn(literal, self.bootstrap, literal)
 

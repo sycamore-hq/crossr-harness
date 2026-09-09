@@ -30,6 +30,13 @@ else
     cat "$TMPDIR/proc/lockfile.toml"
     exit 1
 fi
+if grep -q 'just packet-audit' "$TMPDIR/proc/AGENTS.md" \
+   && ! grep -q 'process-only' "$TMPDIR/proc/AGENTS.md"; then
+    echo "✗ process-only AGENTS.md names just packet-audit without qualification"
+    cat "$TMPDIR/proc/AGENTS.md"
+    exit 1
+fi
+echo "✓ process-only AGENTS.md does not advertise an uninstalled packet-audit"
 
 echo "Testing python3 < 3.11 fails loud..."
 REAL_PY="$(command -v python3)"
@@ -235,6 +242,40 @@ fi
 if ! grep -qE '^packet-audit' "$TMPDIR/full/justfile"; then
     echo "✗ full bootstrap missing just packet-audit"
     cat "$TMPDIR/full/justfile"
+    exit 1
+fi
+if ! grep -qE '^packet-audit MODE \+ARGS:' "$TMPDIR/full/justfile"; then
+    echo "✗ packet-audit recipe is not variadic"
+    cat "$TMPDIR/full/justfile"
+    exit 1
+fi
+set +e
+(
+    cd "$TMPDIR/full"
+    just packet-audit verdict --gate code-review "$TMPDIR/no-such-reply.md"
+) > "$TMPDIR/packet-verdict.log" 2>&1
+verdict_rc=$?
+(
+    cd "$TMPDIR/full"
+    just packet-audit brief --max-lines 200 "$TMPDIR/no-such-packet.md"
+) > "$TMPDIR/packet-brief.log" 2>&1
+brief_rc=$?
+set -e
+if [ "$verdict_rc" -eq 2 ] || grep -q '^usage: audit-packet' "$TMPDIR/packet-verdict.log"; then
+    echo "✗ just packet-audit verdict --gate hit usage error"
+    cat "$TMPDIR/packet-verdict.log"
+    exit 1
+fi
+if [ "$brief_rc" -eq 2 ] || grep -q '^usage: audit-packet' "$TMPDIR/packet-brief.log"; then
+    echo "✗ just packet-audit brief --max-lines hit usage error"
+    cat "$TMPDIR/packet-brief.log"
+    exit 1
+fi
+if ! grep -q 'is not a file' "$TMPDIR/packet-verdict.log" \
+   || ! grep -q 'is not a file' "$TMPDIR/packet-brief.log"; then
+    echo "✗ packet-audit flags did not reach the script"
+    cat "$TMPDIR/packet-verdict.log"
+    cat "$TMPDIR/packet-brief.log"
     exit 1
 fi
 echo "✓ full bootstrap installed packet-audit script + recipe"
