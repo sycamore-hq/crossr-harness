@@ -248,6 +248,27 @@ Bootstrap copies catalog skills from the skills tag, loop conductors + personas 
 
 After the first commit of the empty harness, all future work is tracked inside it.
 
+### Bumping an existing pin
+
+A pin missing a seat file a consumer now needs (for example, `loops`
+without `.agents/agents/generator-agent.md`) is not fixed by hand-editing
+the installed copies or minting a partial roster. Bump the pin:
+
+1. In the source remote (`crossr-loops` for `loops`, `crossr-skills` for
+   `skills`), confirm `main` contains the needed file, then cut (or
+   select an existing) annotated tag from `main` that includes it. Push
+   the tag.
+2. In the consumer repo, edit `lockfile.toml`'s `loops = "<tag>"` (or
+   `skills = "<tag>"`) to the new tag. This is the only hand-edit
+   `lockfile.toml` allows — never hand-edit the installed copies under
+   `.agents/` or the generated `.opencode/` files.
+3. Re-run `./scripts/harness-bootstrap .` (or the project's bootstrap
+   shim). Bootstrap re-copies `.agents/agents/` and `.agents/skills/`
+   from the new pin and regenerates `.opencode/agent/` from the copied
+   personas; it never overwrites an unmarked file.
+4. Verify: the file that was missing is present, and every other pinned
+   file is unchanged except by the tag's own diff.
+
 ---
 
 ## 9. Special Patterns Proven at Scale (Authz Chain)
