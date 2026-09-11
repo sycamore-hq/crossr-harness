@@ -265,7 +265,8 @@ the installed copies or minting a partial roster. Bump the pin:
 3. Re-run `./scripts/harness-bootstrap .` (or the project's bootstrap
    shim). Bootstrap re-copies `.agents/agents/` and `.agents/skills/`
    from the new pin and regenerates `.opencode/agent/` from the copied
-   personas; it never overwrites an unmarked file.
+   personas. As above, it never overwrites a `.opencode/` file that
+   lacks the generated marker; marked files are regenerated every run.
 4. Verify: the file that was missing is present, and every other pinned
    file is unchanged except by the tag's own diff.
 
