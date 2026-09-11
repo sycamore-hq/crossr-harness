@@ -16,7 +16,7 @@
 # Full install copies:
 #   skills pin  → .agents/skills/
 #   loops pin   → .agents/skills/ (overlay) + .agents/agents/ + /avril /axel
-#   this repo   → dashboard-prompt, chief-of-staff, /status, HARNESS-SPEC,
+#   this repo   → dashboard-prompt, portfolio-brief (old name chief-of-staff), /status, HARNESS-SPEC,
 #                 status-dashboard
 # Then generates .opencode/agent/<name>.md from each $TARGET/.agents/agents/*.md
 # persona. Generated files carry a marker and are regenerated every run.

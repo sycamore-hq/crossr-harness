@@ -30,7 +30,7 @@
   the fat pre-2a conductor).
 - `HARNESS-SPEC.md`: dropped `rust-team-lead`; `rust-architect` → `architecture`
   (PR 1a name); persona trio → role names at the new loops pin.
-- Protected-law SKILL.md edits (one-word-class): `chief-of-staff`,
+- Protected-law SKILL.md edits (one-word-class): `portfolio-brief` (old name `chief-of-staff`),
   `dashboard-prompt` — dropped `rust-team-lead` from the orchestration list.
   `scripts/status-dashboard` docstring same drop (not skill law).
 - Smoke `--process-only` assertions follow the new pins. Full-bootstrap now

@@ -234,6 +234,15 @@ if [ ! -f "$TMPDIR/full/.agents/skills/dashboard-prompt/SKILL.md" ]; then
     echo "✗ missing dashboard-prompt from harness"
     exit 1
 fi
+if [ ! -f "$TMPDIR/full/.agents/skills/portfolio-brief/SKILL.md" ]; then
+    echo "✗ missing portfolio-brief from harness"
+    exit 1
+fi
+if [ -e "$TMPDIR/full/.agents/skills/chief-of-staff" ]; then
+    echo "✗ old name chief-of-staff still present under .agents/skills"
+    exit 1
+fi
+echo "✓ portfolio-brief present; old name chief-of-staff absent"
 if [ ! -f "$TMPDIR/full/HARNESS-SPEC.md" ]; then
     echo "✗ missing HARNESS-SPEC.md"
     exit 1
