@@ -28,10 +28,10 @@ JSON topology lives in `crossr-loops/graphs/` on `main`. Pin `loops = "v0"` does
 
 ## Copied (split-04)
 
-See the split-04 commit. Product source: spec, scripts, templates minus `/avril` `/axel`, `dashboard-prompt`, `chief-of-staff`, `features.schema.json`, bootstrap smoke.
+See the split-04 commit. Product source: spec, scripts, templates minus `/avril` `/axel`, `dashboard-prompt`, `chief-of-staff`, bootstrap smoke.
 
 ## Added here (not a copy)
 
 - `lockfile.toml` / `lockfile.toml.example` — real tags as of split-08
 - `templates/harness/justfile.status` — `status` / `status-html` recipes as docs
-- Consumer `AGENTS.md`, `features.json`, `progress.md`, `justfile` (split-08 dogfood)
+- Consumer `AGENTS.md`, `dashboard.config.json`, `justfile` (split-08 dogfood)
