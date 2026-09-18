@@ -4,7 +4,7 @@
 Brief VALIDATE (work#12 / gan-layer-separation-plan §4 PR 7):
 §6 names packet-audit brief/verdict; §12 names the scratch path
 and the TMPDIR fallback; packets never land inside the repo;
-pins are v1-packets / v1-packets-consumers; bootstrap installs
+the pins are not pre-migration catalogs; bootstrap installs
 audit-packet.
 
 Calculations are pure. Loading the tree is the action.
@@ -17,6 +17,29 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+
+# Tags cut before the board cutover. Each still carries features.json /
+# progress.md and a skill layer that names one tracking product, so pinning
+# one reinstalls exactly what the migration removed. Append-only.
+RETIRED_PINS = {
+    "skills": {"v0-last-monolith", "v1-gan-layers", "v1-one-law", "v1-packets"},
+    "loops": {
+        "v0",
+        "v1-cards",
+        "v1-no-rtl",
+        "v1-generator-consumers",
+        "v1-runtime-agents",
+        "v1-one-law-consumers",
+        "v1-packets-consumers",
+    },
+}
+
+PIN_LINE = re.compile(r'(?m)^(skills|loops)\s*=\s*"([^"]+)"')
+
+
+def lockfile_pins(text: str) -> dict[str, str]:
+    """The skills and loops pins a lockfile declares."""
+    return {key: value for key, value in PIN_LINE.findall(text)}
 SPEC = ROOT / "HARNESS-SPEC.md"
 
 
@@ -59,9 +82,16 @@ class LiveTree(unittest.TestCase):
                 continue
             self.assertNotIn("docs/", line, line)
 
-    def test_lockfile_pins_are_the_packet_tags(self):
-        self.assertIn('skills = "v1-packets"', self.lockfile)
-        self.assertIn('loops  = "v1-packets-consumers"', self.lockfile)
+    def test_lockfile_pins_no_pre_board_catalog(self):
+        """Every tag below predates the board cutover, so each still ships
+        features.json / progress.md and a skill layer naming one tracker.
+        Pinning any of them reinstalls what the migration removed. Append
+        when a pin is retired; asserting the current pin by literal made
+        every legitimate bump edit a test instead."""
+        for key, pin in lockfile_pins(self.lockfile).items():
+            with self.subTest(key=key):
+                self.assertNotIn(pin, RETIRED_PINS[key],
+                                 f"{key} pin {pin!r} predates the board cutover")
 
     def test_bootstrap_has_audit_packet_block(self):
         for literal in (

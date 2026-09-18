@@ -4,7 +4,7 @@ The CrossR project harness: `HARNESS-SPEC.md`, `harness-bootstrap`, the status d
 
 It installs pinned tags of [`crossr-skills`](https://github.com/sycamore-hq/crossr-skills) and [`crossr-loops`](https://github.com/sycamore-hq/crossr-loops). It does not own skill text or loop law.
 
-**Dogfood is live (PR 7c).** Pins: `skills = "v1-packets"`, `loops = "v1-packets-consumers"`. See [lockfile.toml](lockfile.toml).
+**Dogfood is live.** Pins: `skills = "v1-board"`, `loops = "v1-board-consumers"`. See [lockfile.toml](lockfile.toml).
 
 Charter: [`skills-loops-harness-split.html`](https://github.com/sycamore-hq/crossr-skills/blob/main/docs/plans/skills-loops-harness-split.html).
 
@@ -28,8 +28,8 @@ Copies catalog skills from the skills tag, loop conductors + personas + `/avril`
 Pins, not work state. The board remains the work log.
 
 ```
-skills = "v1-packets"
-loops  = "v1-packets-consumers"
+skills = "v1-board"
+loops  = "v1-board-consumers"
 books  = ["rust"]     # disclosed language books; optional on non-language remotes
 ```
 

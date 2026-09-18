@@ -26,8 +26,8 @@ for f in AGENTS.md dashboard.config.json justfile lockfile.toml; do
         exit 1
     fi
 done
-if grep -q 'skills = "v1-packets"' "$TMPDIR/proc/lockfile.toml" \
-   && grep -q 'loops  = "v1-packets-consumers"' "$TMPDIR/proc/lockfile.toml"; then
+if grep -q 'skills = "v1-board"' "$TMPDIR/proc/lockfile.toml" \
+   && grep -q 'loops  = "v1-board-consumers"' "$TMPDIR/proc/lockfile.toml"; then
     echo "✓ process-only wrote process files + pins"
 else
     echo "✗ process-only lockfile pins wrong"
