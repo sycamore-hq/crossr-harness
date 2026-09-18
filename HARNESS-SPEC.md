@@ -39,13 +39,13 @@ Crossr-skills (`.agents/skills/`) are the reusable capability layer. This spec i
    "Harness" is not just meta — we literally build verification harnesses at multiple tiers (in-process, parity snapshots, real substrate VM/k8s, etc.).
 
 4. **Traceability & Reviewability**  
-   Every significant piece of work carries stable IDs (tw-xxx, ADR-0002, Phase N, CD-1873, etc.) in code comments, tests, PR titles, and progress tracking.
+   Every significant piece of work carries stable IDs (a board item id, ADR-0002, CD-1873, etc.) in code comments, tests, PR titles, and on the board item itself.
 
 5. **Policy Gates Before Effects**  
    Security and correctness gates (especially mTLS CN-hostname binding, authz checks, etc.) must be enforced *before* any database lookup or side-effecting operation.
 
 6. **Self-Verifying Handovers**  
-   No session ends without tests, clippy, plan-architect / tester / reviewer sign-off (GAN), and clean git state + updated artifacts.
+   No session ends without tests, clippy, plan-architect / tester / reviewer sign-off (GAN), clean git state, and a board that matches what actually happened.
 
 ---
 
@@ -61,51 +61,63 @@ Project-specific rules file. Must contain:
   - Every plan ends with a bulleted list of unresolved questions
 - Link to this `HARNESS-SPEC.md`
 
-### 3.2 `features.json`
+### 3.2 Tracking board (required)
 
-Machine-readable work tracking. Real production shape (proven on ferro-wg and the 16-PR authz chain):
+Every project tracks its work on a board. The harness does not say which one.
+Linear, GitHub Projects, Jira, a self-hosted tracker — any of them satisfies this
+section, and a project swapping one for another changes a config line, not its
+process.
 
-```json
-{
-  "phase7": {
-    "status": "in_progress",
-    "commits": [
-      {
-        "id": "commit3",
-        "title": "Help overlay component",
-        "status": "completed",
-        "features": ["help_overlay_component", "help_overlay_tests", "keybindings_constant"]
-      }
-    ]
-  },
-  "review_remediation": { ... }
-}
-```
+What the harness requires of whatever it is:
 
-**Requirements**:
-- Phases or major workstreams as top-level keys
-- Each commit has stable `id`, human `title`, `status`, and array of granular `features` (these become the atomic units of traceability)
-- A companion JSON Schema (`features.schema.json`) + validation step in the bootstrap/ritual
+- **Stable ids.** An id that survives a rename and can be quoted in a commit
+  message, a PR title, a plan filename, and a conversation.
+- **A status vocabulary** that maps onto done / in progress / todo. Map it; never
+  rename a team's columns to suit a tool.
+- **Containers** — project, epic, milestone, whatever the board calls them — so
+  work groups into workstreams.
+- **Machine-readable reads**, emitting the payload in
+  [`docs/board-contract.md`](docs/board-contract.md). An adapter is a small
+  script; it is not a reason to change boards.
+- **A URL per item.** An agent that cannot clone the repository must still be
+  able to reach the work.
+- **Ordering facts** — dependency or blocking links — so "what can I start now"
+  is answerable from the board rather than from memory.
 
-### 3.3 `progress.md`
+The board is the **source of truth for work state**. Not a file in the
+repository, not the dashboard, not a conversation. A project that keeps a
+second tracker in git has two sources of truth and will eventually ship the
+disagreement between them.
 
-Human-readable, commit-narrative log. Structure:
+The board's identity is **disclosed**, not assumed — see §12. In this
+organisation's remotes the disclosed board is Linear
+([Sycamore HQ / SYC](https://linear.app/scull7/team/SYC/overview)).
 
-```markdown
-# Phase 7: UX Polish — Implementation Progress
+### 3.3 Work records live on the board item
 
-## Completed Phases
+The narrative that used to accumulate in a committed log file belongs on the
+item it describes. After each blessed phase, record on the board item:
 
-### Commit 3: Help overlay component (COMPLETED)
-- ...
-- All tests pass, clippy clean, no warnings
+- what changed and why,
+- the verification that was run and its result,
+- the adversary verdicts (plan architect / tester / reviewer),
+- the commit or PR that carries it.
 
-## Verification Status
-- Tooling checks: PASSED
-- Adversary reviews: PASSED (plan architect + tester + reviewer)
-```
+The PBI Completion Record is a comment on the item, not a file. Append; never
+rewrite history.
 
-Append after every commit. Never rewrite history.
+Two consequences worth stating plainly, because they are the point:
+
+1. **An agent picks up work by reading the board.** Fresh session, no context,
+   no clone — the board says what is in flight, what is blessed, what is
+   blocked, and what the last session concluded. If that is not true, the record
+   is incomplete and fixing it is the next task.
+2. **Git holds the code and its history. The board holds the work state.**
+   Neither stands in for the other.
+
+Generated views (`just status`, `docs/status-dashboard.html`) render the board.
+A view is never committed as a record and never edited to say something the
+board does not.
 
 ### 3.4 `justfile` (or `init.sh` + `Makefile`)
 
@@ -118,11 +130,15 @@ At the start of every session the agent **must** execute (at minimum):
 ```bash
 git status
 git log --oneline -10
-cat progress.md | tail -n 30
-# jq for pending work in the new features.json shape
+just status                  # the board, rendered: done / in progress / todo
 ./init.sh || just init
 cargo check && cargo test --quiet
 ```
+
+Read the board itself — not only the rendered view — for whatever you are about
+to pick up: its description, its acceptance criteria, and the records left on it
+by the last session. The view tells you where the work stands; the item tells you
+what the work is.
 
 ### 3.6 `.agents/skills/` (Canonical)
 
@@ -184,7 +200,7 @@ This pattern is now a first-class recommendation in the harness.
 - Plan is written first, is concise, and ends with unresolved questions.
 - Every commit is a small, reviewable unit.
 - Large features (see CD-1873 authz) are decomposed into 10–16 stacked PRs, each with explicit "this / next / verification".
-- Traceability IDs appear in code, tests, PR titles, and features.json.
+- Traceability IDs appear in code, tests, PR titles, and on the board item.
 
 ---
 
@@ -210,7 +226,7 @@ The blessed plan is committed before the first implementation commit, at the pla
 
 Routing on REJECT or red is defined by the loops conductor card, not here.
 
-Only after the applicable gates pass is the commit + artifacts updated.
+Only after the applicable gates pass is the commit made and the board updated.
 
 ---
 
@@ -232,9 +248,13 @@ Every new project runs (or the human runs):
 ./scripts/harness-bootstrap .          # or the equivalent script
 ```
 
-This produces a minimal but complete starting harness (AGENTS.md, features.json with phase 0, justfile, progress.md stub, `.agents/skills/` from the lockfile pins, OpenCode `/avril` `/axel` `/status`).
+This produces a minimal but complete starting harness (AGENTS.md, justfile,
+`dashboard.config.json` disclosing the board, `.agents/skills/` from the lockfile
+pins, OpenCode `/avril` `/axel` `/status`). Bootstrap writes no tracking file:
+the board exists before the repository does, and §3.2 is satisfied by disclosing
+it, not by generating a stub.
 
-Pins live in `lockfile.toml` (not a third tracker — `features.json` remains the work log):
+Pins live in `lockfile.toml` — pins, not work state:
 
 ```
 skills = "<tag>"
@@ -246,7 +266,8 @@ books  = ["rust"]     # disclosed language books; ["ocaml"], ["rust", "ts"], ...
 
 Bootstrap copies catalog skills from the skills tag, loop conductors + personas + `/avril` `/axel` from the loops tag, and harness templates from this remote, then generates `.opencode/agent/` from the copied personas. Never overwrites a `.opencode/` file that lacks the generated marker; marked files are regenerated every run. No git submodules. `--process-only` writes tracking files without copying skills (product-repo dogfood).
 
-After the first commit of the empty harness, all future work is tracked inside it.
+After the first commit of the empty harness, all future work is tracked on the
+disclosed board.
 
 ### Bumping an existing pin
 
@@ -288,7 +309,7 @@ These patterns are now part of the expected discipline for any comparably large 
 ## 10. Versioning & Evolution
 
 This spec lives at the root of crossr-harness as `HARNESS-SPEC.md`.  
-Changes are proposed via the same harness process the spec itself defines (features.json entries, small reviewable PRs, full verification gates).
+Changes are proposed via the same harness process the spec itself defines (a board item, small reviewable PRs, full verification gates).
 
 ## 11. Agent Definitions (GAN Mechanization)
 
@@ -320,14 +341,16 @@ AVRIL, AXEL, and BRICK are **loop law**. They live in [`crossr-loops`](https://g
 
 The harness **discloses** (stratified parameters at activation):
 
-- Board backend (Pinto preferred when `.pinto/` exists; otherwise the project's backlog path)
-- Tracking artifacts (`features.json`, `progress.md`)
+- Board backend — which board, and how it is read (§3.2, `docs/board-contract.md`).
+  Mandatory. A session that cannot name the board stops and asks; it does not
+  invent a tracking file to work around the gap.
 - Ritual (`just` targets, session start, verification matrix)
 - Dashboard command (`just status` / `just status-html` / `/status`)
 - Plan artifacts (default `docs/plans/pbi/<id>.plan.md`; committed before implementation, immutable once blessed)
 - Packet scratch path (default `${TMPDIR:-/tmp}/crossr-packets/<pbi-id>/`; never inside the repo, never committed)
 
-Bootstrap installs pinned tags of the two catalogs. Not a third tracker — `features.json` remains the work log:
+Bootstrap installs pinned tags of the two catalogs. Pins, not work state — the
+board remains the work log:
 
 ```
 skills = <tag>
