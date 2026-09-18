@@ -17,15 +17,19 @@ Usage:
     scripts/status-dashboard --root A --root B ...   # portfolio across projects
 
 Sources, all optional and read-only — a missing one degrades to empty:
-    features.json      phases -> commits -> features
-    pinto list --json  board items, when pinto is installed
-    progress.md        tail, for the last recorded activity
+    the tracking board   items, through whichever backend the project discloses
+    features.json        phases -> commits -> features
+    progress.md          tail, for the last recorded activity
 
-A project whose tracker uses different words or a different board CLI supplies
-`dashboard.config.json` (see DEFAULT_CONFIG below). Without one, the defaults
-above apply unchanged. The board command is run as an argv list, never through a
-shell, so a config cannot inject shell syntax — but it does name a program this
-script will execute, so treat it with the same trust as a justfile.
+The harness requires a board and names none. `board.backend` picks the adapter
+(see BOARD_ADAPTERS below); `auto` probes the known ones and reports the absence
+when none is available. A project whose tracker uses different status words or a
+different CLI supplies `dashboard.config.json` (see DEFAULT_CONFIG). The payload
+every backend must emit is docs/board-contract.md.
+
+A board command is run as an argv list, never through a shell, so a config cannot
+inject shell syntax — but it does name a program this script will execute, so
+treat it with the same trust as a justfile.
 
 Structure follows the repo's own philosophy: reading sources are actions,
 everything that shapes or renders the model is a pure calculation.
@@ -37,6 +41,7 @@ import argparse
 import datetime as _datetime
 import html
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -50,21 +55,46 @@ TODO = "todo"
 DEFAULT_CONFIG = {
     # Status vocabularies. Anything unmatched is todo, so only done and active
     # need listing. Compared case-insensitively with -/_/space normalised.
+    # The canonical lifecycle types (completed / started) are listed alongside the
+    # human words so a board that renames its columns still classifies correctly.
     "status_map": {
         "done": ["completed", "complete", "done", "verified", "merged", "shipped"],
-        "active": ["in progress", "inprogress", "building", "built", "review",
-                   "in review", "started", "wip", "regressed"],
+        "active": ["started", "in progress", "inprogress", "building", "built",
+                   "review", "in review", "in_review", "wip", "regressed"],
     },
-    # Board source. `command` is an argv list, run without a shell.
+    # Board source. `backend` names an adapter in BOARD_ADAPTERS, or "command"
+    # to run `command` (an argv list, without a shell), or "none".
     # `items_path` walks into the payload; "" means the payload is the list.
-    # `fields` maps our id/title/status onto the tracker's own key names.
+    # `fields` maps this contract's names onto the tracker's own key names.
     "board": {
-        "command": ["pinto", "list", "--json"],
+        "backend": "auto",
+        "file": "board.json",
+        "command": [],
         "items_path": "",
-        "fields": {"id": "id", "title": "title", "status": "status"},
+        "fields": {"id": "id", "title": "title", "status": "status",
+                   "status_label": "status", "group": "group", "url": "url"},
     },
     "features_file": "features.json",
     "progress_file": "progress.md",
+}
+
+# Board adapters, probed in this order when `backend` is "auto". Each names how
+# to reach a board and how to read what comes back; none of them is a default in
+# the sense of being preferred — the first one a project can actually run wins.
+BOARD_ADAPTERS = {
+    "linear": {
+        "script": "linear-board",
+        "env_any": ["LINEAR_API_KEY", "LINEAR_TOKEN"],
+        "items_path": "tasks",
+        "fields": {"id": "id", "title": "title", "status": "status_type",
+                   "status_label": "status", "group": "group", "url": "url"},
+    },
+    "file": {
+        "file": "board.json",
+        "items_path": "tasks",
+        "fields": {"id": "id", "title": "title", "status": "status_type",
+                   "status_label": "status", "group": "group", "url": "url"},
+    },
 }
 
 
@@ -83,10 +113,21 @@ def load_config(root: Path, path: str | None) -> dict:
     raw = json.loads(candidate.read_text())
     cfg = {**DEFAULT_CONFIG, **raw}
     cfg["status_map"] = {**DEFAULT_CONFIG["status_map"], **raw.get("status_map", {})}
-    cfg["board"] = {**DEFAULT_CONFIG["board"], **raw.get("board", {})}
-    cfg["board"]["fields"] = {**DEFAULT_CONFIG["board"]["fields"],
-                              **raw.get("board", {}).get("fields", {})}
+    cfg["board"] = merge_board(DEFAULT_CONFIG["board"], raw.get("board", {}))
+    # Kept verbatim so an adapter can slot in underneath the project's own
+    # overrides: defaults < adapter < what this file actually said.
+    cfg["board_overrides"] = raw.get("board", {})
     return cfg
+
+
+def merge_board(base: dict, *layers: dict) -> dict:
+    """Layer board configs, newest last, merging `fields` instead of replacing it."""
+    out = dict(base)
+    out["fields"] = dict(base.get("fields", {}))
+    for layer in layers:
+        out.update({k: v for k, v in layer.items() if k != "fields"})
+        out["fields"] = {**out["fields"], **(layer.get("fields") or {})}
+    return out
 
 
 # ---------------------------------------------------------------- calculations
@@ -148,21 +189,19 @@ def board_items(raw: object, board_cfg: dict | None = None,
     node = dig(raw, cfg.get("items_path") or "") if cfg.get("items_path") else None
     if node is None:
         node = raw if isinstance(raw, list) else (raw or {}).get("tasks", [])
-    f = cfg.get("fields", DEFAULT_CONFIG["board"]["fields"])
+    d = DEFAULT_CONFIG["board"]["fields"]
+    f = {**d, **cfg.get("fields", {})}
     return [
         {
             "id": dig(t, f["id"]) or "?",
             "title": dig(t, f["title"]) or "",
             "state": classify(dig(t, f["status"]) or "", status_map),
-            "status": dig(t, f["status"]) or "",
+            "status": dig(t, f["status_label"]) or dig(t, f["status"]) or "",
+            "group": dig(t, f["group"]) or "",
+            "url": dig(t, f["url"]) or "",
         }
         for t in node if isinstance(t, dict)
     ]
-
-
-# Kept so existing callers and tests keep working.
-def board_from_pinto(raw: object) -> list[dict]:
-    return board_items(raw)
 
 
 def phase_unit(phase: dict) -> dict:
@@ -207,13 +246,13 @@ def totals(phases: list[dict], board: list[dict]) -> dict:
     }
 
 
-def build_model(features: dict, pinto_raw: object, progress_tail: str,
+def build_model(features: dict, board_raw: object, progress_tail: str,
                 project: str, generated: str, config: dict | None = None) -> dict:
     cfg = config or DEFAULT_CONFIG
     sm = cfg.get("status_map")
     phases = phases_from_features(features, sm)
-    board = board_items(pinto_raw, cfg.get("board"), sm)
-    raw_items = pinto_raw if isinstance(pinto_raw, list) else (pinto_raw or {}).get("tasks", [])
+    board = board_items(board_raw, cfg.get("board"), sm)
+    raw_items = board_raw if isinstance(board_raw, list) else (board_raw or {}).get("tasks", [])
     if not isinstance(raw_items, list):
         raw_items = []
     return {
@@ -645,13 +684,68 @@ def read_features(root: Path, filename: str = "features.json") -> dict:
         return {}
 
 
-def read_board(root: Path, board_cfg: dict) -> object:
-    """Run the configured board command as argv (never through a shell)."""
-    cmd = board_cfg.get("command") or []
-    if not cmd or not shutil.which(cmd[0]):
+def adapter_argv(name: str, spec: dict) -> list[str]:
+    """The argv for a script-backed adapter, resolved next to this script."""
+    return [sys.executable, str(Path(__file__).resolve().parent / spec["script"])]
+
+
+def adapter_available(root: Path, spec: dict) -> bool:
+    """Whether this backend can actually be read here, without reading it."""
+    if spec.get("env_any"):
+        return any(os.environ.get(key) for key in spec["env_any"])
+    if spec.get("file"):
+        return (root / spec["file"]).exists()
+    return False
+
+
+def resolve_board(root: Path, cfg: dict, overrides: dict) -> tuple[str | None, dict]:
+    """Pick the backend and its effective config.
+
+    "auto" probes the known adapters in registry order and takes the first one
+    this project can run. No backend is preferred over another; availability is
+    the whole rule. A project that wants a specific one names it.
+    """
+    board = cfg.get("board", DEFAULT_CONFIG["board"])
+    backend = (board.get("backend") or "auto").lower()
+
+    def settle(name: str) -> tuple[str, dict]:
+        return name, merge_board(board, BOARD_ADAPTERS.get(name, {}), overrides)
+
+    if backend == "none":
+        return None, board
+    if backend == "command":
+        return ("command", merge_board(board, overrides)) if board.get("command") else (None, board)
+    if backend in BOARD_ADAPTERS:
+        return settle(backend)
+    if backend == "auto":
+        for name, spec in BOARD_ADAPTERS.items():
+            if adapter_available(root, spec):
+                return settle(name)
+        if board.get("command"):
+            return "command", merge_board(board, overrides)
+        return None, board
+    return None, board
+
+
+def read_board(root: Path, backend: str | None, board_cfg: dict) -> object:
+    """Read the board through the resolved backend. A failure degrades to None.
+
+    A command is run as argv, never through a shell.
+    """
+    if backend is None:
+        return None
+    spec = BOARD_ADAPTERS.get(backend, {})
+    if spec.get("file") or (backend == "file" and board_cfg.get("file")):
+        path = root / (board_cfg.get("file") or spec["file"])
+        try:
+            return json.loads(path.read_text())
+        except Exception:
+            return None
+    cmd = adapter_argv(backend, spec) if spec.get("script") else (board_cfg.get("command") or [])
+    if not cmd or (not spec.get("script") and not shutil.which(cmd[0])):
         return None
     try:
-        done = subprocess.run(cmd, cwd=root, capture_output=True, text=True, timeout=20)
+        done = subprocess.run(cmd, cwd=root, capture_output=True, text=True, timeout=30)
         return json.loads(done.stdout) if done.returncode == 0 else None
     except Exception:
         return None
@@ -689,9 +783,11 @@ def read_progress_tail(root: Path, filename: str = "progress.md", lines: int = 1
 def read_project(path: Path, config_arg: str | None, generated: str) -> dict:
     """Read one project into a model. The only place actions and calculations meet."""
     cfg = load_config(path, config_arg)
+    backend, board_cfg = resolve_board(path, cfg, cfg.get("board_overrides", {}))
+    cfg = {**cfg, "board": board_cfg, "board_backend": backend}
     return build_model(
         features=read_features(path, cfg.get("features_file", "features.json")),
-        pinto_raw=read_board(path, cfg.get("board", DEFAULT_CONFIG["board"])),
+        board_raw=read_board(path, backend, board_cfg),
         progress_tail=read_progress_tail(path, cfg.get("progress_file", "progress.md")),
         project=path.name,
         generated=generated,
