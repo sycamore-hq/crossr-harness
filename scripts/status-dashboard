@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """status-dashboard — the in-harness orchestration UI.
 
-Renders work completed / in progress / todo from the harness's own tracking
-artifacts, so an orchestrator (AVRIL, AXEL, or a generated
-orchestrator prompt) can refresh a single view as it makes progress.
+Renders work completed / in progress / todo from the project's tracking board,
+so an orchestrator (AVRIL, AXEL, or a generated orchestrator prompt) can refresh
+a single view as it makes progress. A view, never a record.
 
 Usage:
     scripts/status-dashboard                 # terminal summary
@@ -16,10 +16,9 @@ Usage:
     scripts/status-dashboard --detail        # deep view of one project
     scripts/status-dashboard --root A --root B ...   # portfolio across projects
 
-Sources, all optional and read-only — a missing one degrades to empty:
-    the tracking board   items, through whichever backend the project discloses
-    features.json        phases -> commits -> features
-    progress.md          tail, for the last recorded activity
+The board is the source. There is no file-based tracker to fall back to: a board
+that cannot be read is reported as unread, never filled in with a guess. Recent
+commits ride along as context, not as work state.
 
 The harness requires a board and names none. `board.backend` picks the adapter
 (see BOARD_ADAPTERS below); `auto` probes the known ones and reports the absence
@@ -74,8 +73,6 @@ DEFAULT_CONFIG = {
         "fields": {"id": "id", "title": "title", "status": "status",
                    "status_label": "status", "group": "group", "url": "url"},
     },
-    "features_file": "features.json",
-    "progress_file": "progress.md",
 }
 
 # Board adapters, probed in this order when `backend` is "auto". Each names how
@@ -143,34 +140,37 @@ def classify(status: str, status_map: dict | None = None) -> str:
     return TODO
 
 
-def phases_from_features(features: dict, status_map: dict | None = None) -> list[dict]:
-    """Shape features.json into ordered phases with per-commit classification."""
-    phases = []
-    for name, body in features.items():
-        if not isinstance(body, dict):
-            continue
-        commits = [c for c in body.get("commits", []) if isinstance(c, dict)]
-        items = [
-            {
-                "id": c.get("id", "?"),
-                "title": c.get("title", ""),
-                "state": classify(c.get("status", ""), status_map),
-                "features": len(c.get("features") or []),
-            }
-            for c in commits
-        ]
+def groups_from_board(board: list[dict]) -> list[dict]:
+    """Group board items by workstream, unfinished groups first.
+
+    A group is whatever the board calls a container — a Linear project, an
+    epic, a milestone. Items without one collect under "ungrouped" rather
+    than disappearing from the view.
+    """
+    order: list[str] = []
+    buckets: dict[str, list[dict]] = {}
+    for item in board:
+        name = item.get("group") or "ungrouped"
+        if name not in buckets:
+            buckets[name] = []
+            order.append(name)
+        buckets[name].append(item)
+
+    groups = []
+    for name in order:
+        items = buckets[name]
         done = sum(1 for i in items if i["state"] == DONE)
-        phases.append({
+        active = any(i["state"] == ACTIVE for i in items)
+        groups.append({
             "name": name,
-            "state": classify(body.get("status", ""), status_map),
+            "state": DONE if done == len(items) else (ACTIVE if active else TODO),
             "items": items,
             "done": done,
             "total": len(items),
-            "percent": round(100 * done / len(items)) if items else (
-                100 if classify(body.get("status", ""), status_map) == DONE else 0),
+            "percent": round(100 * done / len(items)) if items else 0,
         })
-    phases.sort(key=lambda p: ({DONE: 2, ACTIVE: 0, TODO: 1}[p["state"]], p["name"]))
-    return phases
+    groups.sort(key=lambda g: ({DONE: 2, ACTIVE: 0, TODO: 1}[g["state"]], g["name"]))
+    return groups
 
 
 def dig(node: object, path: str) -> object:
@@ -204,53 +204,20 @@ def board_items(raw: object, board_cfg: dict | None = None,
     ]
 
 
-def phase_unit(phase: dict) -> dict:
-    """The phase itself as a unit of work, when its state is not carried by any commit."""
+def totals(board: list[dict], backend: str | None = None) -> dict:
+    """Count units of work by state. The board is the only source there is."""
     return {
-        "id": phase["name"],
-        "title": f"phase {phase['name']} ({phase['done']}/{phase['total']} commits done)",
-        "state": phase["state"],
-        "kind": "phase",
+        DONE: sum(1 for u in board if u["state"] == DONE),
+        ACTIVE: sum(1 for u in board if u["state"] == ACTIVE),
+        TODO: sum(1 for u in board if u["state"] == TODO),
+        "source": backend or "none",
     }
 
 
-def feature_units(phases: list[dict]) -> list[dict]:
-    """Commits are the units. A phase whose state is not among its commit
-    states is also a unit — otherwise a phase left in_progress after every
-    child completed counts as 0 in progress.
-    """
-    units = []
-    for phase in phases:
-        items = list(phase["items"])
-        units.extend(items)
-        if phase["state"] not in {item["state"] for item in items} and (
-            phase["state"] != DONE or not items
-        ):
-            units.append(phase_unit(phase))
-    return units
-
-
-def work_units(phases: list[dict], board: list[dict]) -> list[dict]:
-    """Board items win when both are present; otherwise features.json units."""
-    return board if board else feature_units(phases)
-
-
-def totals(phases: list[dict], board: list[dict]) -> dict:
-    """Count units of work by state. Board items win when both are present."""
-    units = work_units(phases, board)
-    return {
-        DONE: sum(1 for u in units if u["state"] == DONE),
-        ACTIVE: sum(1 for u in units if u["state"] == ACTIVE),
-        TODO: sum(1 for u in units if u["state"] == TODO),
-        "source": "board" if board else "features.json",
-    }
-
-
-def build_model(features: dict, board_raw: object, progress_tail: str,
+def build_model(board_raw: object, backend: str | None, commits: list[str],
                 project: str, generated: str, config: dict | None = None) -> dict:
     cfg = config or DEFAULT_CONFIG
     sm = cfg.get("status_map")
-    phases = phases_from_features(features, sm)
     board = board_items(board_raw, cfg.get("board"), sm)
     raw_items = board_raw if isinstance(board_raw, list) else (board_raw or {}).get("tasks", [])
     if not isinstance(raw_items, list):
@@ -258,11 +225,12 @@ def build_model(features: dict, board_raw: object, progress_tail: str,
     return {
         "project": project,
         "generated": generated,
-        "phases": phases,
+        "backend": backend,
+        "groups": groups_from_board(board),
         "board": board,
         "raw_items": raw_items,
-        "totals": totals(phases, board),
-        "progress_tail": progress_tail,
+        "totals": totals(board, backend),
+        "commits": commits,
     }
 
 
@@ -296,25 +264,13 @@ def label_counts(raw_items: list[dict], board: list[dict]) -> list[tuple]:
     return sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
 
 
-def open_phase_features(phases: list[dict]) -> list[dict]:
-    """Phases with unfinished work, and the items still outstanding in them.
-
-    A phase left in_progress after every child completed is unfinished even
-    though done == total. The phase itself is the outstanding item.
-    """
-    open_phases = []
-    for phase in phases:
-        outstanding = [item for item in phase["items"] if item["state"] != DONE]
-        if phase["state"] != DONE and phase["state"] not in {item["state"] for item in outstanding}:
-            outstanding = outstanding + [phase_unit(phase)]
-        if outstanding:
-            open_phases.append({
-                "name": phase["name"],
-                "done": phase["done"],
-                "total": phase["total"],
-                "items": outstanding,
-            })
-    return open_phases
+def open_groups(groups: list[dict]) -> list[dict]:
+    """Groups with unfinished work, and the items still outstanding in them."""
+    return [
+        {"name": g["name"], "done": g["done"], "total": g["total"],
+         "items": [i for i in g["items"] if i["state"] != DONE]}
+        for g in groups if g["state"] != DONE
+    ]
 
 
 # ------------------------------------------------------------------- rendering
@@ -333,13 +289,13 @@ def render_terminal(model: dict) -> str:
         f"  {MARK[DONE]} completed {t[DONE]:>3}"
         f"    {MARK[ACTIVE]} in progress {t[ACTIVE]:>3}"
         f"    {MARK[TODO]} todo {t[TODO]:>3}"
-        f"    (from {t['source']})",
+        f"    (board: {t['source']})",
     ]
 
-    if model["phases"]:
-        out += ["", "  PHASES"]
-        open_by_name = {op["name"]: op["items"] for op in open_phase_features(model["phases"])}
-        for p in model["phases"]:
+    if model["groups"]:
+        out += ["", "  WORKSTREAMS"]
+        open_by_name = {og["name"]: og["items"] for og in open_groups(model["groups"])}
+        for p in model["groups"]:
             bar_len = 16
             filled = round(bar_len * p["percent"] / 100)
             bar = "█" * filled + "·" * (bar_len - filled)
@@ -354,9 +310,13 @@ def render_terminal(model: dict) -> str:
         for b in open_items:
             out.append(f"    {MARK[b['state']]} {b['id']:<6} {b['title'][:56]}")
 
-    if model["progress_tail"]:
-        out += ["", "  LAST RECORDED ACTIVITY",
-                *(f"    {line}" for line in model["progress_tail"].splitlines()[-3:])]
+    if not model["board"]:
+        out += ["", "  no board read — disclose one in dashboard.config.json",
+                "  (docs/board-contract.md)"]
+
+    if model["commits"]:
+        out += ["", "  RECENT COMMITS",
+                *(f"    {line}" for line in model["commits"][:3])]
 
     out.append("")
     return "\n".join(out)
@@ -391,9 +351,9 @@ def render_detail_markdown(model: dict, detail: dict) -> str:
         out += ["", "### Open work by label", "",
                 " · ".join(f"**{k}** {v}" for k, v in detail["labels"][:8])]
 
-    if detail["phases"]:
-        out += ["", "### Unfinished phases"]
-        for p in detail["phases"]:
+    if detail["groups"]:
+        out += ["", "### Unfinished workstreams"]
+        for p in detail["groups"]:
             out += ["", f"**{p['name']}** — {p['done']}/{p['total']}"]
             for i in p["items"]:
                 out.append(f"- {'🟡' if i['state'] == ACTIVE else '⬜'} `{i['id']}` {i['title']}")
@@ -401,9 +361,6 @@ def render_detail_markdown(model: dict, detail: dict) -> str:
     if detail.get("commits"):
         out += ["", "### Recent commits", "", "```", *detail["commits"], "```"]
 
-    if model["progress_tail"]:
-        out += ["", "### Last recorded activity", "", "```",
-                *model["progress_tail"].splitlines()[-6:], "```"]
     return "\n".join(out)
 
 
@@ -449,11 +406,11 @@ def _cards(items: list[dict], state: str) -> str:
 
 def render_html(model: dict) -> str:
     t = model["totals"]
-    units = work_units(model["phases"], model["board"])
+    units = model["board"]
     by = {s: [u for u in units if u["state"] == s] for s in (DONE, ACTIVE, TODO)}
     total = max(len(units), 1)
 
-    phase_rows = "".join(
+    group_rows = "".join(
         f'<div class="py-3 border-b border-zinc-800/60 last:border-0">'
         f'<div class="flex items-center justify-between gap-4">'
         f'<div class="flex items-center gap-2 min-w-0">'
@@ -465,8 +422,8 @@ def render_html(model: dict) -> str:
         f'<div class="h-1.5 bg-zinc-800 rounded-full mt-2 overflow-hidden">'
         f'<div class="h-full rounded-full {"bg-emerald-500" if p["state"] == DONE else "bg-amber-500"}" style="width:{p["percent"]}%"></div>'
         f'</div></div>'
-        for p in model["phases"]
-    ) or '<div class="text-sm text-zinc-600 italic">no features.json phases</div>'
+        for p in model["groups"]
+    ) or '<div class="text-sm text-zinc-600 italic">no workstreams on the board</div>'
 
     def pct(n): return round(100 * n / total)
 
@@ -485,7 +442,7 @@ def render_html(model: dict) -> str:
   <div class="flex items-end justify-between flex-wrap gap-4 mb-10">
     <div>
       <div class="text-3xl font-semibold tracking-tighter">{html.escape(model['project'])}</div>
-      <div class="text-sm text-zinc-500 mt-1">Orchestration status · generated from {html.escape(t['source'])}</div>
+      <div class="text-sm text-zinc-500 mt-1">Orchestration status · board: {html.escape(t['source'])}</div>
     </div>
     <div class="text-xs text-zinc-600 font-mono">{html.escape(model['generated'])}</div>
   </div>
@@ -526,13 +483,13 @@ def render_html(model: dict) -> str:
   </div>
 
   <div class="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-6 mb-6">
-    <div class="text-xs uppercase tracking-widest text-zinc-500 mb-3">Phases</div>
-    {phase_rows}
+    <div class="text-xs uppercase tracking-widest text-zinc-500 mb-3">Workstreams</div>
+    {group_rows}
   </div>
 
   <div class="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-6">
-    <div class="text-xs uppercase tracking-widest text-zinc-500 mb-3">Last recorded activity</div>
-    <pre class="text-xs text-zinc-400 whitespace-pre-wrap font-mono leading-relaxed">{html.escape(model['progress_tail'] or '(no progress.md)')}</pre>
+    <div class="text-xs uppercase tracking-widest text-zinc-500 mb-3">Recent commits</div>
+    <pre class="text-xs text-zinc-400 whitespace-pre-wrap font-mono leading-relaxed">{html.escape(chr(10).join(model['commits']) or '(no git history)')}</pre>
   </div>
 
   <div class="text-xs text-zinc-700 mt-8">
@@ -561,9 +518,9 @@ def render_markdown(model: dict) -> str:
         f"|---:|---:|---:|",
         f"| {t[DONE]} | {t[ACTIVE]} | {t[TODO]} |",
     ]
-    if model["phases"]:
-        out += ["", "| phase | progress | |", "|---|---|---:|"]
-        for p in model["phases"]:
+    if model["groups"]:
+        out += ["", "| workstream | progress | |", "|---|---|---:|"]
+        for p in model["groups"]:
             out.append(f"| {p['name']} | `{_bar(p['percent'])}` | {p['done']}/{p['total']} |")
     open_items = [b for b in model["board"] if b["state"] != DONE]
     if open_items:
@@ -605,7 +562,7 @@ def render_portfolio_markdown(pf: dict) -> str:
         out.append(f"| **{m['project']}** | {t[DONE]} | {t[ACTIVE]} | {t[TODO]} | "
                    f"`{_bar(round(100 * t[DONE] / n))}` | {t['source']} |")
     active = [(m["project"], u) for m in pf["projects"]
-              for u in work_units(m["phases"], m["board"]) if u["state"] == ACTIVE]
+              for u in m["board"] if u["state"] == ACTIVE]
     if active:
         out += ["", "**In progress right now**", "", "| project | id | title |", "|---|---|---|"]
         for proj, item in active:
@@ -639,7 +596,7 @@ def render_portfolio_html(pf: dict) -> str:
         f'<td class="py-2 pr-4 font-mono text-xs text-zinc-400">{html.escape(str(u["id"]))}</td>'
         f'<td class="py-2 text-zinc-200">{html.escape(u["title"])}</td></tr>'
         for m in pf["projects"]
-        for u in work_units(m["phases"], m["board"]) if u["state"] == ACTIVE
+        for u in m["board"] if u["state"] == ACTIVE
     ) or '<tr><td class="py-2 text-zinc-600 italic" colspan="3">nothing in progress</td></tr>'
 
     return f"""<!DOCTYPE html>
@@ -675,14 +632,6 @@ def render_portfolio_html(pf: dict) -> str:
 
 
 # ----------------------------------------------------------------- actions/io
-
-def read_features(root: Path, filename: str = "features.json") -> dict:
-    try:
-        data = json.loads((root / filename).read_text())
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
-
 
 def adapter_argv(name: str, spec: dict) -> list[str]:
     """The argv for a script-backed adapter, resolved next to this script."""
@@ -768,27 +717,20 @@ def build_detail(model: dict, commits: list[str]) -> dict:
     return {
         **readiness(model["board"], model.get("raw_items", [])),
         "labels": label_counts(model.get("raw_items", []), model["board"]),
-        "phases": open_phase_features(model["phases"]),
+        "groups": open_groups(model["groups"]),
         "commits": commits,
     }
-
-
-def read_progress_tail(root: Path, filename: str = "progress.md", lines: int = 12) -> str:
-    try:
-        return "\n".join((root / filename).read_text().splitlines()[-lines:])
-    except Exception:
-        return ""
 
 
 def read_project(path: Path, config_arg: str | None, generated: str) -> dict:
     """Read one project into a model. The only place actions and calculations meet."""
     cfg = load_config(path, config_arg)
     backend, board_cfg = resolve_board(path, cfg, cfg.get("board_overrides", {}))
-    cfg = {**cfg, "board": board_cfg, "board_backend": backend}
+    cfg = {**cfg, "board": board_cfg}
     return build_model(
-        features=read_features(path, cfg.get("features_file", "features.json")),
         board_raw=read_board(path, backend, board_cfg),
-        progress_tail=read_progress_tail(path, cfg.get("progress_file", "progress.md")),
+        backend=backend,
+        commits=read_commits(path),
         project=path.name,
         generated=generated,
         config=cfg,
@@ -801,7 +743,7 @@ def main() -> int:
     ap.add_argument("--html-only", action="store_true", help="write HTML, print nothing")
     ap.add_argument("--markdown", action="store_true", help="print markdown instead of the terminal view")
     ap.add_argument("--detail", action="store_true",
-                    help="deep view of one project: ready vs blocked, labels, unfinished phases")
+                    help="deep view of one project: ready vs blocked, labels, unfinished workstreams")
     ap.add_argument("--out", default="docs/status-dashboard.html")
     ap.add_argument("--root", action="append", default=None,
                     help="project root; repeat for a portfolio across projects")
@@ -836,7 +778,7 @@ def main() -> int:
         return 2
 
     if args.detail:
-        detail = build_detail(models[0], read_commits(roots[0]))
+        detail = build_detail(models[0], models[0]["commits"])
         text = (render_detail_markdown(models[0], detail) if args.markdown
                 else render_detail_terminal(models[0], detail))
     elif args.markdown:
