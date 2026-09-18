@@ -633,7 +633,7 @@ def render_portfolio_html(pf: dict) -> str:
 
 # ----------------------------------------------------------------- actions/io
 
-def adapter_argv(name: str, spec: dict) -> list[str]:
+def adapter_argv(spec: dict) -> list[str]:
     """The argv for a script-backed adapter, resolved next to this script."""
     return [sys.executable, str(Path(__file__).resolve().parent / spec["script"])]
 
@@ -690,7 +690,7 @@ def read_board(root: Path, backend: str | None, board_cfg: dict) -> object:
             return json.loads(path.read_text())
         except Exception:
             return None
-    cmd = adapter_argv(backend, spec) if spec.get("script") else (board_cfg.get("command") or [])
+    cmd = adapter_argv(spec) if spec.get("script") else (board_cfg.get("command") or [])
     if not cmd or (not spec.get("script") and not shutil.which(cmd[0])):
         return None
     try:
