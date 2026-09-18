@@ -1,5 +1,5 @@
 # Pins consumed by harness-bootstrap / sync-skills.
-# Not a third tracker — features.json remains the work log. No git submodules.
+# Pins, not work state — the board remains the work log. No git submodules.
 # skills = one-law catalog (code-writer + language books + activity gates).
 # loops  = v1-packets-consumers (packet ritual, AVRIL batch).
 # books  = disclosed language books. Disclosure filter, not a copy filter:

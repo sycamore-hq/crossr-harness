@@ -3,7 +3,7 @@
 
 Brief VALIDATE (work#12 / gan-layer-separation-plan §4 PR 7):
 §6 names packet-audit brief/verdict; §12 names the scratch path
-and the TMPDIR fallback; packets never land under docs/ or .pinto/;
+and the TMPDIR fallback; packets never land inside the repo;
 pins are v1-packets / v1-packets-consumers; bootstrap installs
 audit-packet.
 
@@ -12,7 +12,6 @@ Calculations are pure. Loading the tree is the action.
 
 from __future__ import annotations
 
-import json
 import re
 import unittest
 from pathlib import Path
@@ -43,8 +42,6 @@ class LiveTree(unittest.TestCase):
         cls.sec12 = section(cls.spec, "12. Loops (supplied, not defined here)")
         cls.lockfile = (ROOT / "lockfile.toml").read_text()
         cls.bootstrap = (ROOT / "scripts" / "harness-bootstrap").read_text()
-        cls.features = json.loads((ROOT / "features.json").read_text())
-        cls.progress = (ROOT / "progress.md").read_text()
 
     def test_section_6_names_packet_audit(self):
         self.assertTrue(self.sec6, "HARNESS-SPEC.md missing §6")
@@ -61,7 +58,6 @@ class LiveTree(unittest.TestCase):
             if "packet" not in line.lower():
                 continue
             self.assertNotIn("docs/", line, line)
-            self.assertNotIn(".pinto/", line, line)
 
     def test_lockfile_pins_are_the_packet_tags(self):
         self.assertIn('skills = "v1-packets"', self.lockfile)
@@ -76,21 +72,6 @@ class LiveTree(unittest.TestCase):
         ):
             self.assertIn(literal, self.bootstrap, literal)
 
-    def test_features_records_pr7c(self):
-        phase = self.features["gan-layer-separation"]
-        self.assertNotEqual(phase.get("status"), "in_progress")
-        ids = {
-            c["id"]
-            for c in phase.get("commits") or []
-            if c.get("status") == "completed"
-        }
-        self.assertIn("pr7c", ids)
-
-    def test_progress_records_pr7c(self):
-        self.assertRegex(
-            self.progress,
-            r"(?m)^### gan-layer-separation — PR 7c \(COMPLETED\)",
-        )
 
 
 if __name__ == "__main__":

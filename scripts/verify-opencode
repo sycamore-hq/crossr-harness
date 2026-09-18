@@ -101,14 +101,36 @@ for path in sorted(glob.glob(".opencode/command/*.md")):
         problems.append(f"{path}: body does not use $ARGUMENTS")
 
 # Preflight shell injections must stay read-only.
+#
+# Two guards, because the harness names no board and so cannot enumerate one
+# tracker's write verbs. The first catches the fixed vocabulary we do know; the
+# second catches "<tool> <noun> <mutating verb>" in any board CLI, by looking
+# only at a command's leading words so prose inside a quoted script is not
+# mistaken for a command.
 WRITES = ("git commit", "git push", "git add", "git checkout", "git reset", "git merge",
-          "pinto add", "pinto move", "pinto set", "pinto update", "pinto automate", "rm ", "mv ")
+          "rm ", "mv ")
+MUTATORS = {"add", "create", "new", "update", "set", "move", "edit", "delete",
+            "remove", "close", "assign", "comment", "automate", "start", "finish"}
+
+
+def simple_commands(shell: str) -> list[list[str]]:
+    """Split a preflight into commands, then into their leading words."""
+    for sep in ("&&", "||", "|", ";", "\n"):
+        shell = shell.replace(sep, "\x00")
+    return [part.split()[:3] for part in shell.split("\x00") if part.split()]
+
+
 for path in sorted(glob.glob(".opencode/command/*.md")):
     body = open(path).read()
     for shell in re.findall(r"!`([^`]*)`", body, re.S):
         for w in WRITES:
             if w in shell:
                 problems.append(f"{path}: preflight contains write command {w.strip()!r}")
+        for words in simple_commands(shell):
+            hit = [w for w in words[1:] if w.lower() in MUTATORS]
+            if hit:
+                problems.append(
+                    f"{path}: preflight looks like a board write: {' '.join(words)!r}")
 
 for p in problems:
     print("PROBLEM", p)

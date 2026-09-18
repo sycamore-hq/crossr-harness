@@ -20,7 +20,7 @@ trap 'rm -rf "$TMPDIR"' EXIT
 
 echo "Testing --process-only..."
 "$BOOTSTRAP" --process-only "$TMPDIR/proc" > /dev/null
-for f in AGENTS.md features.json progress.md justfile lockfile.toml; do
+for f in AGENTS.md dashboard.config.json justfile lockfile.toml; do
     if [ ! -f "$TMPDIR/proc/$f" ]; then
         echo "✗ process-only missing $f"
         exit 1

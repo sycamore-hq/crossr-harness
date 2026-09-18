@@ -1,6 +1,6 @@
 # crossr-harness
 
-The CrossR project harness: `HARNESS-SPEC.md`, `harness-bootstrap`, the status dashboard, and the tracking ritual (`features.json`, `progress.md`, `/status`).
+The CrossR project harness: `HARNESS-SPEC.md`, `harness-bootstrap`, the status dashboard, and the tracking ritual (a board, `/status`).
 
 It installs pinned tags of [`crossr-skills`](https://github.com/sycamore-hq/crossr-skills) and [`crossr-loops`](https://github.com/sycamore-hq/crossr-loops). It does not own skill text or loop law.
 
@@ -21,11 +21,11 @@ Copies catalog skills from the skills tag, loop conductors + personas + `/avril`
 
 **Graphs (split-09)** live on [`crossr-loops`](https://github.com/sycamore-hq/crossr-loops/tree/main/graphs) (in pin `v1-packets-consumers`). Bootstrap does not copy `graphs/`. Topology only — SKILL.md stays the law.
 
-`--process-only` writes `AGENTS.md`, `features.json`, `progress.md`, `justfile`, `lockfile.toml` without copying skills (how the three product remotes consume this harness).
+`--process-only` writes `AGENTS.md`, `dashboard.config.json`, `justfile`, `lockfile.toml` without copying skills (how the three product remotes consume this harness).
 
 ## Lockfile
 
-Not a third tracker. `features.json` remains the work log.
+Pins, not work state. The board remains the work log.
 
 ```
 skills = "v1-packets"
@@ -39,11 +39,11 @@ books  = ["rust"]     # disclosed language books; optional on non-language remot
 
 - `HARNESS-SPEC.md` — artifact, ritual, PETC, verification. §12 points at loops; it does not define AVRIL/AXEL.
 - `scripts/harness-bootstrap`, `generate-opencode-agent`, `sync-skills`, `status-dashboard`, `verify-docs`, `verify-opencode`
-- `templates/harness/` — AGENTS/features templates, `/status` OpenCode bodies, `opencode.jsonc` skeleton
+- `templates/harness/` — AGENTS/dashboard-config templates, `/status` OpenCode bodies, `opencode.jsonc` skeleton
 - `dashboard-prompt`, `chief-of-staff`
-- `features.schema.json`, `test/harness-bootstrap-smoke.sh`
+- `docs/board-contract.md`, `test/harness-bootstrap-smoke.sh`
 
-Consumer tracking files (`AGENTS.md`, `features.json`, `progress.md`, `justfile`) are a dogfood instance, not the product source.
+Consumer files (`AGENTS.md`, `dashboard.config.json`, `justfile`) are a dogfood instance, not the product source.
 
 ## OpenCode prompt bodies
 

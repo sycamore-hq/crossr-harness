@@ -15,9 +15,9 @@ Before generating, the invoking agent **MUST** also apply `code-writer`.
 
 ## Harness Context (Stratified Disclosure)
 
-This is a harness-layer generator skill. It produces artifacts for a dashboard generator that renders **completed / in progress / todo** from a project's own tracking sources.
+This is a harness-layer generator skill. It produces artifacts for a dashboard generator that renders **completed / in progress / todo** from a project's tracking board.
 
-The reference implementation is `scripts/status-dashboard` with an optional `dashboard.config.json`, but the skill is not bound to it: the concrete generator command, config path, and source names are parameters disclosed by the invoking harness. What is fixed is the contract — sources are read-only, the view never becomes the record, classification is proven against live data rather than assumed, and a dashboard that cannot be refreshed is declared stale rather than left to rot.
+The reference implementation is `scripts/status-dashboard` with an optional `dashboard.config.json`, but the skill is not bound to it: the generator command, the config path, and **which board this project uses** are parameters disclosed by the invoking harness. No board is assumed and none is preferred. What is fixed is the contract — the board is read-only to this skill, the view never becomes the record, classification is proven against live data rather than assumed, and a dashboard that cannot be refreshed is declared stale rather than left to rot.
 
 The output is read by the working agent, not by a human. Write it as instructions, not as documentation.
 
@@ -32,9 +32,8 @@ So the central job of this skill is not writing prose. It is **proving the mappi
 | Input | Source (in priority order) | If absent |
 |-------|----------------------------|-----------|
 | `PROJECT_NAME`, `REPO` | human → git root | unresolved question |
-| Board | `pinto`, `gh project`, `jira`, `linear`, or any CLI emitting JSON | record "none"; features/tracking file becomes the only source |
-| Tracking file | `features.json` or the project's equivalent | record "none" |
-| Narrative log | `progress.md` or equivalent | record "none" |
+| Board | the disclosed tracker — any adapter or CLI emitting the board payload | record `Board: none` and stop; never create a tracker to fill the gap |
+| Board adapter | the argv or script that reads it, and the payload shape it returns | write one; an adapter is small, a second tracker is not |
 | Status vocabulary | **the literal strings the board emits**, collected from live output | ask; never assume the defaults fit |
 | `REFRESH`, `PUBLISH` | justfile / scripts | install the reference generator, or state the project has none |
 | Checkpoints | the project's real state transitions (board moves, review gates, merges) | derive from its workflow; never ship the generic list |
@@ -42,10 +41,10 @@ So the central job of this skill is not writing prose. It is **proving the mappi
 
 ## Procedure (Exact Flow)
 
-1. **Inventory the trackers.** Find every source that knows about work state. Run each read command yourself and look at the output. Do not infer a tracker's shape from its name.
-2. **Collect the literal status vocabulary.** Extract the distinct status strings the board and tracking file actually emit, with counts. This is a fact-finding step with a command behind it, not a guess.
+1. **Read the board.** Run its read command yourself and look at the output. Do not infer a board's shape from its name. If something else in the repository also claims to know work state, that is a finding: say so, and do not wire it in as a second source.
+2. **Collect the literal status vocabulary.** Extract the distinct status strings the board actually emits, with counts. Prefer a canonical lifecycle type over a display name when the board has both — a renamed column then costs nothing. This is a fact-finding step with a command behind it, not a guess.
 3. **Map each observed string** to done, active, or todo. Every string gets a decision. An unmapped string silently becomes todo, so an unreviewed vocabulary is an unfinished job.
-4. **Write the config** (`dashboard.config.json` or the harness's equivalent): status map, board command as an argv list, items path, field names, source filenames. Omit any key whose default already fits.
+4. **Write the config** (`dashboard.config.json` or the harness's equivalent): backend, status map, board command as an argv list, items path, field names. Omit any key whose default already fits.
 5. **Prove it.** Run the generator with the config and compare its counts against the board's own totals for the same states. They must match. If they do not, the mapping is wrong — fix it and run again. Record the comparison; it is the evidence for this work.
 6. **Fill the contract** from `assets/dashboard-contract-template.md`: resolve every `{{…}}`, derive checkpoints from the project's real transitions, and record any vocabulary gotcha you hit in step 3.
 7. **Verify mechanically:** the contract has zero `{{` remaining; every source line names a real command or says "none"; the checkpoint list is project-specific; the proof from step 5 is attached.
@@ -94,8 +93,9 @@ The contract then names those commands and that vocabulary, so the working agent
 never has to rediscover them.
 
 A project with no board at all is a valid outcome, not a failure: record `Board: none`,
-let the tracking file carry the counts, and say so in the contract rather than
-inventing a source.
+say in the contract that the project has no readable work state yet, and stop.
+There is nothing else to fall back to, and inventing a source — a tracking file,
+a hand-kept list — is how a project ends up with two truths.
 
 ## Boundaries
 

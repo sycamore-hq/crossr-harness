@@ -24,7 +24,7 @@
 # stays put; a pre-v1-cards unmarked avril.md also stays until deleted
 # by hand). No git submodules.
 #
-# --process-only: AGENTS.md, features.json, progress.md, justfile, lockfile.toml
+# --process-only: AGENTS.md, dashboard.config.json, justfile, lockfile.toml
 # only. Product-repo dogfood. Does not copy skills.
 #
 # Overrides: CROSSR_SKILLS_PATH, CROSSR_LOOPS_PATH (skip clone).
@@ -46,7 +46,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --process-only) PROCESS_ONLY=true; shift ;;
         -h|--help)      usage; exit 0 ;;
-        --force)        echo "unknown flag: --force (never overwrites unmarked .opencode/ files; generated agent files are regenerated; existing AGENTS/features/progress/justfile are kept)" >&2; exit 2 ;;
+        --force)        echo "unknown flag: --force (never overwrites unmarked .opencode/ files; generated agent files are regenerated; existing AGENTS/dashboard.config/justfile are kept)" >&2; exit 2 ;;
         -*)             echo "unknown flag: $1" >&2; exit 2 ;;
         *)              TARGET="$1"; shift ;;
     esac
@@ -296,28 +296,23 @@ else
     echo "  = Kept existing AGENTS.md"
 fi
 
-if [ ! -f "$TARGET/features.json" ]; then
-    if [ -f "$ROOT/templates/harness/features.json.template" ]; then
-        cp "$ROOT/templates/harness/features.json.template" "$TARGET/features.json"
+# The board is the work log (HARNESS-SPEC §3.2). Bootstrap writes no tracking
+# file — it writes the disclosure of where the board is and how to read it.
+if [ ! -f "$TARGET/dashboard.config.json" ]; then
+    if [ -f "$ROOT/templates/harness/dashboard.config.json.template" ]; then
+        cp "$ROOT/templates/harness/dashboard.config.json.template" "$TARGET/dashboard.config.json"
     else
-        printf '%s\n' '{ "phase0": { "status": "in_progress", "commits": [] } }' > "$TARGET/features.json"
+        printf '%s\n' '{ "board": { "backend": "auto" } }' > "$TARGET/dashboard.config.json"
     fi
-    echo "  + Created features.json"
+    echo "  + Created dashboard.config.json (board: auto — name the backend before first use)"
 else
-    echo "  = Kept existing features.json"
+    echo "  = Kept existing dashboard.config.json"
 fi
 
-if [ ! -f "$TARGET/progress.md" ]; then
-    cat > "$TARGET/progress.md" << 'EOF'
-# Implementation Progress
-
-## Verification Status
-- Tooling: pending
-- Reviews: pending
-EOF
-    echo "  + Created progress.md stub"
-else
-    echo "  = Kept existing progress.md"
+# A committed board snapshot is a tracking file by another name.
+if ! grep -qx 'board.json' "$TARGET/.gitignore" 2>/dev/null; then
+    printf '%s\n' 'board.json' >> "$TARGET/.gitignore"
+    echo "  + Ignored board.json (a snapshot is a view, never a record)"
 fi
 
 if [ ! -f "$TARGET/justfile" ]; then
@@ -343,7 +338,7 @@ if [ ! -f "$TARGET/lockfile.toml" ]; then
     {
         cat <<EOF
 # Pins consumed by harness-bootstrap / sync-skills.
-# Not a third tracker — features.json remains the work log. No git submodules.
+# Pins, not work state — the board remains the work log. No git submodules.
 skills = "${SKILLS_TAG}"
 loops  = "${LOOPS_TAG}"
 EOF
