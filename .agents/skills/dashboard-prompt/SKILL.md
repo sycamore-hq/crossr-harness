@@ -52,7 +52,7 @@ So the central job of this skill is not writing prose. It is **proving the mappi
 
 ## Examples
 
-A project whose board is GitHub Projects and whose tracking file uses its own words.
+A project whose board is GitHub Projects and whose columns use its own words.
 
 Step 2 collected the literal strings, with counts, by running the board command:
 

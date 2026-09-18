@@ -264,7 +264,7 @@ books  = ["rust"]     # disclosed language books; ["ocaml"], ["rust", "ts"], ...
 
 `books` is a disclosure filter, not a copy filter. `harness-bootstrap` copies every skill directory that has a `SKILL.md` and does not read `books`. Do not later turn bootstrap into a partial copy. Language consumers declare `books`; loops and this remote do not (absence of the key is not a failure and loads no book). See §11 for how a session reads the list.
 
-Bootstrap copies catalog skills from the skills tag, loop conductors + personas + `/avril` `/axel` from the loops tag, and harness templates from this remote, then generates `.opencode/agent/` from the copied personas. Never overwrites a `.opencode/` file that lacks the generated marker; marked files are regenerated every run. No git submodules. `--process-only` writes tracking files without copying skills (product-repo dogfood).
+Bootstrap copies catalog skills from the skills tag, loop conductors + personas + `/avril` `/axel` from the loops tag, and harness templates from this remote, then generates `.opencode/agent/` from the copied personas. Never overwrites a `.opencode/` file that lacks the generated marker; marked files are regenerated every run. No git submodules. `--process-only` writes the process files without copying skills (product-repo dogfood). It writes no tracker: work state is on the board.
 
 After the first commit of the empty harness, all future work is tracked on the
 disclosed board.
