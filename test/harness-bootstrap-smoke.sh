@@ -26,6 +26,14 @@ for f in AGENTS.md dashboard.config.json justfile lockfile.toml; do
         exit 1
     fi
 done
+# Bootstrap is how a file tracker would reach every consumer at once. It must
+# not emit one: work state lives on the board (HARNESS-SPEC.md 3.2).
+for f in features.json features.schema.json progress.md; do
+    if [ -f "$TMPDIR/proc/$f" ]; then
+        echo "✗ process-only wrote a file tracker: $f"
+        exit 1
+    fi
+done
 if grep -q 'skills = "v1-board"' "$TMPDIR/proc/lockfile.toml" \
    && grep -q 'loops  = "v1-board-consumers"' "$TMPDIR/proc/lockfile.toml"; then
     echo "✓ process-only wrote process files + pins"
