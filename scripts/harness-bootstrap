@@ -57,7 +57,7 @@ mkdir -p "$TARGET"
 TARGET="$(cd "$TARGET" && pwd)"
 
 echo "→ Bootstrapping harness in: $TARGET"
-$PROCESS_ONLY && echo "  (process-only: tracking files, no skill copy)"
+$PROCESS_ONLY && echo "  (process-only: process files, no skill copy)"
 
 python3 -c 'import tomllib' 2>/dev/null || {
     echo "Error: harness-bootstrap needs python3 >= 3.11 (tomllib)" >&2

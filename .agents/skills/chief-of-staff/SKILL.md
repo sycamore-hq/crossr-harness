@@ -29,7 +29,7 @@ Note on `/status`: that is an **opencode slash command, not a skill**, and it is
 |-------|--------|-----------|
 | Project list | **the principal, per run** | ask. Never brief on a remembered roster; the set changes and a silently dropped project reads as "nothing to report" |
 | Project paths | the principal → local clones → GitHub | report the project as unread and say why |
-| Generator | a crossr-skills checkout: `scripts/status-dashboard --root <path>` | fall back to reading the project's board and tracking files directly, and say that you did |
+| Generator | a crossr-skills checkout: `scripts/status-dashboard --root <path>` | fall back to reading the project's board directly, and say that you did |
 | Since-marker | the last briefing, or a date the principal gives | report current state only, and say the update has no baseline |
 | Prose skill | `voice-dna` (house register) or `unslop` (neutral) | write plainly and skip the flourishes |
 
@@ -38,7 +38,7 @@ Note on `/status`: that is an **opencode slash command, not a skill**, and it is
 1. **Confirm the roster.** Restate the projects you were asked about. If the principal named none, ask; do not assume last time's list.
 2. **Establish freshness before reading.** For each project, `git fetch` (read-only) and record the branch, the last commit date, and whether the clone is behind its remote. A briefing from a stale clone is a confident lie about the present.
 3. **Read each project's status** with the generator, `--root` per project. Capture the counts, the open board items, and the last recorded activity.
-4. **Record provenance per project**: which source answered (board / tracking file / neither), the commit you read, and its date. This goes in the briefing, compressed, not in a footnote nobody reads.
+4. **Record provenance per project**: which source answered (board / git only / neither), the commit you read, and its date. This goes in the briefing, compressed, not in a footnote nobody reads.
 5. **Reconcile against motion.** Compare the counts to recent commits and merged PRs on an explicitly named branch. Work in progress with no commits touching it is a stall, and a stall is the most useful thing you can tell a principal — which is exactly why you confirm the ref resolved before claiming one.
 6. **Write the briefing** in the shape below. Lead with what changed and what needs a decision, not with a table of every ticket.
 7. **List what you could not read**, by name, with the reason. This section is never omitted, and "all projects read cleanly" is a valid one-line version of it.
@@ -128,8 +128,8 @@ Keep it to what the principal can act on. One screen where possible.
 | Situation | What to do |
 |---|---|
 | Local clone is behind origin | Report the briefing against the fetched remote state and flag the local clone as stale. Never silently report old numbers as current. |
-| No local clone for a named project | Read what GitHub exposes (tracking files, PRs, issues), mark the provenance as GitHub-only, and say the board was not available. |
-| Generator missing | Read the project's board and tracking files directly, say you did, and note that the counts are unverified by the generator. |
+| No local clone for a named project | Read what GitHub exposes (PRs, issues), mark the provenance as GitHub-only, and say the board was not available. |
+| Generator missing | Read the project's board directly, say you did, and note that the counts are unverified by the generator. |
 | Dashboard reports zeros during known activity | Treat as a defect, not a status. Most often the tracker's status words do not match the config. Report it and point at `dashboard-prompt`. |
 | A motion check returns zero commits | Verify the ref resolved before calling it a stall. `origin/HEAD` is unset in many clones, so `git log origin/HEAD` silently returns nothing and a busy project reads as dead. Name the branch explicitly and re-check before reporting. |
 | Two sources disagree | Report both numbers and which you trust. Do not average them or pick quietly. |
