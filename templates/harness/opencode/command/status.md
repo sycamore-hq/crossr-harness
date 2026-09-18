@@ -8,7 +8,7 @@ agent: status
 !`./scripts/status-dashboard 2>/dev/null || python3 scripts/status-dashboard 2>/dev/null || echo "(no scripts/status-dashboard in this project — report from the board itself instead)"`
 
 What is startable, and what is waiting:
-!`./scripts/status-dashboard --detail 2>/dev/null || echo "(no board read — see docs/board-contract.md)"`
+!`./scripts/status-dashboard --detail 2>/dev/null || echo "(no board reader in this project — read the disclosed board directly)"`
 
 Recent commits:
 !`git log --oneline -8 2>/dev/null || echo "(no git repository)"`
