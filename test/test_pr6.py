@@ -11,7 +11,6 @@ Calculations are pure. Loading the tree is the action.
 
 from __future__ import annotations
 
-import json
 import re
 import unittest
 from pathlib import Path
@@ -81,8 +80,6 @@ class LiveTree(unittest.TestCase):
         cls.sec6 = section(cls.spec, "6. Verification Gates (Non-Negotiable)")
         cls.sec11 = section(cls.spec, "11. Agent Definitions (GAN Mechanization)")
         cls.sec12 = section(cls.spec, "12. Loops (supplied, not defined here)")
-        cls.features = json.loads((ROOT / "features.json").read_text())
-        cls.progress = (ROOT / "progress.md").read_text()
 
     def test_section_6_exists(self):
         self.assertTrue(self.sec6, "HARNESS-SPEC.md missing §6")
@@ -107,22 +104,6 @@ class LiveTree(unittest.TestCase):
 
     def test_spec_drops_the_old_diff_chain_slogan(self):
         self.assertNotIn("Reviewer → Tester → Architect", self.spec)
-
-    def test_features_records_pr6c(self):
-        phase = self.features["gan-layer-separation"]
-        self.assertNotEqual(phase.get("status"), "in_progress")
-        ids = {
-            c["id"]
-            for c in phase.get("commits") or []
-            if c.get("status") == "completed"
-        }
-        self.assertIn("pr6c", ids)
-
-    def test_progress_records_pr6c(self):
-        self.assertRegex(
-            self.progress,
-            r"(?m)^### gan-layer-separation — PR 6c \(COMPLETED\)",
-        )
 
 
 if __name__ == "__main__":

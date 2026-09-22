@@ -16,8 +16,8 @@ PARAMETERS (resolved for this project)
 
 SOURCES OF TRUTH (read-only; the dashboard renders these, it never replaces them)
   Board          : {{command + what it returns, or "none"}}
-  Tracking file  : {{features.json or equivalent, or "none"}}
-  Narrative log  : {{progress.md or equivalent, or "none"}}
+  Board adapter  : {{how the board is read — script, argv, or snapshot path}}
+  Item ids       : {{the id shape that appears in commits and PR titles}}
   Status words   : done   = {{project's done words}}
                    active = {{project's in-flight words}}
                    everything else counts as todo

@@ -20,15 +20,23 @@ trap 'rm -rf "$TMPDIR"' EXIT
 
 echo "Testing --process-only..."
 "$BOOTSTRAP" --process-only "$TMPDIR/proc" > /dev/null
-for f in AGENTS.md features.json progress.md justfile lockfile.toml; do
+for f in AGENTS.md dashboard.config.json justfile lockfile.toml; do
     if [ ! -f "$TMPDIR/proc/$f" ]; then
         echo "✗ process-only missing $f"
         exit 1
     fi
 done
-if grep -q 'skills = "v1-packets"' "$TMPDIR/proc/lockfile.toml" \
-   && grep -q 'loops  = "v1-packets-consumers"' "$TMPDIR/proc/lockfile.toml"; then
-    echo "✓ process-only wrote tracking files + pins"
+# Bootstrap is how a file tracker would reach every consumer at once. It must
+# not emit one: work state lives on the board (HARNESS-SPEC.md 3.2).
+for f in features.json features.schema.json progress.md; do
+    if [ -f "$TMPDIR/proc/$f" ]; then
+        echo "✗ process-only wrote a file tracker: $f"
+        exit 1
+    fi
+done
+if grep -q 'skills = "v1-board"' "$TMPDIR/proc/lockfile.toml" \
+   && grep -q 'loops  = "v1-board-consumers"' "$TMPDIR/proc/lockfile.toml"; then
+    echo "✓ process-only wrote process files + pins"
 else
     echo "✗ process-only lockfile pins wrong"
     cat "$TMPDIR/proc/lockfile.toml"

@@ -1,0 +1,192 @@
+#!/usr/bin/env python3
+"""linear-board — read a Linear board into the harness's canonical board payload.
+
+The harness requires a tracking board; it does not require Linear. This is one
+adapter among however many a project needs. Anything that emits the payload
+below is an equally valid board backend — see docs/board-contract.md.
+
+Usage:
+    scripts/linear-board                    # every open + completed issue on the team
+    scripts/linear-board --team SYC         # team key (default: $LINEAR_TEAM)
+    scripts/linear-board --project "Name"   # one project only
+    scripts/linear-board --all              # include canceled and duplicate issues
+
+Authentication is `$LINEAR_API_KEY` (a personal API key) or `$LINEAR_TOKEN` (an
+OAuth access token). Without one this exits 3 and prints nothing on stdout, so a
+caller can tell "no board configured" from "the board is empty".
+
+Read-only by construction: the only GraphQL document here is a query. This script
+never mutates a board, which is what lets the read-only status agent run it.
+
+Payload (docs/board-contract.md):
+
+    {"backend": "linear",
+     "tasks": [{"id": "SYC-1", "title": "...", "status": "In Progress",
+                "status_type": "started", "group": "Project name",
+                "url": "https://...", "labels": [...], "depends_on": ["SYC-2"]}]}
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+
+API_URL = "https://api.linear.app/graphql"
+PAGE = 100
+TIMEOUT = 20
+
+# Canceled and duplicate issues are not work; they are noise in a progress count.
+SKIP_TYPES = {"canceled", "duplicate"}
+
+QUERY = """
+query HarnessBoard($filter: IssueFilter, $first: Int!, $after: String) {
+  issues(filter: $filter, first: $first, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      identifier
+      title
+      url
+      updatedAt
+      state { name type }
+      project { name }
+      labels { nodes { name } }
+      inverseRelations { nodes { type issue { identifier } } }
+    }
+  }
+}
+"""
+
+
+class BoardError(RuntimeError):
+    """A board read that failed for a reason the caller should see."""
+
+
+# ---------------------------------------------------------------- calculations
+
+def auth_header(key: str) -> str:
+    """Personal API keys go raw; OAuth access tokens are bearer tokens."""
+    return f"Bearer {key}" if key.startswith("lin_oauth_") else key
+
+
+def build_filter(team: str | None, project: str | None) -> dict | None:
+    """A GraphQL IssueFilter, or None when the whole workspace is wanted."""
+    where: dict = {}
+    if team:
+        where["team"] = {"key": {"eq": team}}
+    if project:
+        where["project"] = {"name": {"eq": project}}
+    return where or None
+
+
+def depends_on(node: dict) -> list[str]:
+    """Issues that block this one.
+
+    An inverse relation of type "blocks" reads "<issue> blocks me", so its
+    issue is a dependency. Relations of other types are not ordering facts.
+    """
+    nodes = ((node.get("inverseRelations") or {}).get("nodes")) or []
+    return [
+        rel["issue"]["identifier"]
+        for rel in nodes
+        if rel.get("type") == "blocks" and (rel.get("issue") or {}).get("identifier")
+    ]
+
+
+def to_task(node: dict) -> dict:
+    """One Linear issue as a canonical board item."""
+    state = node.get("state") or {}
+    project = node.get("project") or {}
+    labels = ((node.get("labels") or {}).get("nodes")) or []
+    return {
+        "id": node.get("identifier") or "?",
+        "title": node.get("title") or "",
+        "status": state.get("name") or "",
+        "status_type": state.get("type") or "",
+        "group": project.get("name") or "",
+        "url": node.get("url") or "",
+        "labels": [lab.get("name") for lab in labels if lab.get("name")],
+        "depends_on": depends_on(node),
+        "updated_at": node.get("updatedAt") or "",
+    }
+
+
+def shape(nodes: list[dict], include_all: bool) -> list[dict]:
+    """Canonical tasks, newest activity last, with dead issues dropped."""
+    tasks = [to_task(n) for n in nodes if isinstance(n, dict)]
+    if not include_all:
+        tasks = [t for t in tasks if t["status_type"] not in SKIP_TYPES]
+    return sorted(tasks, key=lambda t: (t["group"], t["id"]))
+
+
+# ------------------------------------------------------------------ actions/io
+
+def post(key: str, variables: dict) -> dict:
+    """One GraphQL round trip. Errors surface; they are never swallowed here."""
+    body = json.dumps({"query": QUERY, "variables": variables}).encode()
+    req = urllib.request.Request(
+        API_URL,
+        data=body,
+        headers={"Content-Type": "application/json", "Authorization": auth_header(key)},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+            payload = json.loads(resp.read().decode())
+    except urllib.error.HTTPError as exc:
+        raise BoardError(f"linear api {exc.code}: {exc.reason}") from exc
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise BoardError(f"linear api unreachable: {exc}") from exc
+    if payload.get("errors"):
+        first = payload["errors"][0].get("message", "unknown error")
+        raise BoardError(f"linear api rejected the query: {first}")
+    return payload.get("data") or {}
+
+
+def fetch(key: str, where: dict | None) -> list[dict]:
+    """Every page of issues matching the filter."""
+    nodes: list[dict] = []
+    cursor = None
+    while True:
+        data = post(key, {"filter": where, "first": PAGE, "after": cursor})
+        page = data.get("issues") or {}
+        nodes.extend(page.get("nodes") or [])
+        info = page.get("pageInfo") or {}
+        if not info.get("hasNextPage"):
+            return nodes
+        cursor = info.get("endCursor")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--team", default=os.environ.get("LINEAR_TEAM"),
+                    help="team key, e.g. SYC (default: $LINEAR_TEAM)")
+    ap.add_argument("--project", default=os.environ.get("LINEAR_PROJECT"),
+                    help="restrict to one project (default: $LINEAR_PROJECT)")
+    ap.add_argument("--all", action="store_true",
+                    help="include canceled and duplicate issues")
+    args = ap.parse_args()
+
+    key = os.environ.get("LINEAR_API_KEY") or os.environ.get("LINEAR_TOKEN")
+    if not key:
+        print("linear-board: no $LINEAR_API_KEY or $LINEAR_TOKEN — board unread",
+              file=sys.stderr)
+        return 3
+
+    try:
+        nodes = fetch(key, build_filter(args.team, args.project))
+    except BoardError as exc:
+        print(f"linear-board: {exc}", file=sys.stderr)
+        return 1
+
+    json.dump({"backend": "linear", "tasks": shape(nodes, args.all)}, sys.stdout, indent=2)
+    sys.stdout.write("\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

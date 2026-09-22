@@ -10,57 +10,65 @@ PARAMETERS (resolved for this project)
   REFRESH          = `just status` (or `./scripts/status-dashboard`)
   PUBLISH          = `just status-html`
   DASHBOARD_FILE   = docs/status-dashboard.html
-  CONFIG           = none — defaults apply
+  CONFIG           = dashboard.config.json
   SOURCES          = see SOURCES below
   CHECKPOINTS      = see CHECKPOINTS below
 
-SOURCES OF TRUTH (read-only; the dashboard renders these, it never replaces them)
-  Board          : `pinto list --json` when pinto is on PATH (DEFAULT_CONFIG); absent, the dashboard falls back to features.json and REFRESH prints `(from features.json)`
-  Tracking file  : features.json — phases -> commits -> features; schema in features.schema.json
-  Narrative log  : progress.md
-  Status words   : done   = completed, complete, done, verified, merged, shipped
-                   active = in progress, inprogress, building, built, review,
-                            in review, started, wip, regressed
-                   everything else counts as todo
-  Literal strings collected from features.json across harness / loops / skills
-  (2026-09-03): phase:completed, phase:in_progress, commit:completed.
-  Schema also allows phase:pending, phase:verified, commit:pending, commit:in_progress.
-  in_progress normalises to "in progress" and maps to active. pending is todo by
-  omission. No dashboard.config.json — those defaults already fit.
-  If a source is missing, the dashboard degrades to what remains. That is expected.
-  Say which source is absent rather than filling the gap with a guess.
+SOURCE OF TRUTH (read-only; the dashboard renders it, it never replaces it)
+  Board          : Linear — team Sycamore HQ (SYC)
+                   https://linear.app/scull7/team/SYC/overview
+  Board adapter  : `scripts/linear-board` (needs $LINEAR_API_KEY or $LINEAR_TOKEN).
+                   Without credentials, an agent holding Linear MCP tools writes
+                   the same payload to board.json and the `file` adapter reads it.
+                   Payload: docs/board-contract.md
+  Item ids       : SYC-<n>. They appear in commit subjects and PR titles.
+  Status words   : classified on Linear's lifecycle type, not its column names —
+                   done   = completed
+                   active = started  (In Progress, In Review)
+                   todo   = everything else (Backlog, Todo)
+                   Canceled and duplicate issues are dropped by the adapter: they
+                   are not work, and counting them makes progress look worse than
+                   it is.
+  There is no file-based tracker in this repository, by design. features.json and
+  progress.md were removed when the board became the single source of truth. If
+  you find yourself wanting to write work state into a file, that is the board's
+  job — open the issue instead.
+  If the board cannot be read, the dashboard says so. Report the absence. Do not
+  fill the gap with a guess, and do not reconstruct counts from git log.
 
 CHECKPOINTS (refresh at each; never batch them to the end)
-  - After any features.json status change (phase or commit).
-  - After appending a Verification Status block to progress.md.
-  - After merging a stacked PR that this tracker records.
+  - After moving an item on the board (state change, new item, closure).
+  - After recording a Completion Record on an item.
+  - After merging a stacked PR that an item tracks.
   The rule behind the list: refresh immediately after the underlying state changes,
   because the window between the change and the refresh is the window in which the
   dashboard is lying.
 
 RULES
   - Generated, never hand-written. Run REFRESH or PUBLISH. Do not hand-author
-    DASHBOARD_FILE, and do not edit it to say something the sources do not.
+    DASHBOARD_FILE, and do not edit it to say something the board does not.
   - The dashboard is a view, not a record. When it disagrees with the board, the
     board wins and the disagreement is itself a finding worth reporting.
+  - board.json is a view too. It is gitignored; a committed snapshot is a tracking
+    file by another name.
   - Never show work as complete before its completion evidence exists.
-  - A stale dashboard is worse than none. If you cannot refresh it, say so in the
-    same place you record progress, and say why.
+  - A stale dashboard is worse than none. If you cannot refresh it, say so where
+    you record progress — on the board item — and say why.
   - Commit DASHBOARD_FILE only at a phase or ticket boundary, not on
     every refresh, so the diff stays meaningful.
   - Report counts you read, never counts you expect. If REFRESH shows zeros where
-    you believed there was work, that is a defect in the sources or the config —
+    you believed there was work, that is a defect in the board or the config —
     investigate it, do not narrate around it.
 
 WHEN THE NUMBERS LOOK WRONG
   A dashboard reporting "0 in progress" during active work usually means the status
-  vocabulary does not match the tracker's. Check CONFIG's status words against the
-  literal strings the board emits before concluding the work is untracked.
-  Gotcha (sycamore-hq/work#10): totals() used to flatten commit items only. A phase
-  left in_progress after every child commit completed printed 100% done and 0 in
-  progress. feature_units() now counts that phase as a unit. Do not "fix" the
-  number by editing features.json alone — that is a different ticket (gan-close-4b).
-  Prove with: `python3 test/test_status_dashboard.py`.
+  vocabulary does not match the board's. Check CONFIG's status words against the
+  literal strings the adapter emits before concluding the work is untracked.
+  `(board: none)` in the header is the other common case, and it means exactly what
+  it says: no backend was available, so nothing was read. Check the credentials or
+  the snapshot before reading anything into the zeros.
+  Prove with: `python3 test/test_status_dashboard.py` and
+  `python3 test/test_board_adapters.py`.
 
 FIRST ACTION
   Run REFRESH now and state the current counts before doing anything else. That is

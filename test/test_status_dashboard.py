@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""status-dashboard calculations. The live-data case is the ticket:
+"""status-dashboard calculations, over the board model.
 
-A phase left in_progress after every child commit completed used to
-count as 0 in progress. totals() must count that phase.
+The dashboard renders one source: the project's tracking board. The thing
+worth guarding is that it never invents work state — an unread board reads as
+unread, and grouping never loses an item.
 """
 
 from __future__ import annotations
 
 import importlib.util
-import json
 import unittest
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
@@ -25,157 +25,146 @@ _loader.exec_module(dash)
 DONE, ACTIVE, TODO = dash.DONE, dash.ACTIVE, dash.TODO
 
 
-def phases(features: dict):
-    return dash.phases_from_features(features)
+def item(id_, state, group="Tracking", title="x"):
+    return {"id": id_, "title": title, "state": state, "status": state,
+            "group": group, "url": ""}
 
 
-class FeatureUnits(unittest.TestCase):
-    def test_phase_in_progress_all_commits_done_is_one_active(self):
-        # The live harness / loops / skills shape that printed 0 in progress.
-        shaped = phases({
-            "gan-layer-separation": {
-                "status": "in_progress",
-                "commits": [
-                    {"id": "pr2b", "title": "a", "status": "completed"},
-                    {"id": "pr3b", "title": "b", "status": "completed"},
-                    {"id": "pr4-pin", "title": "c", "status": "completed"},
-                ],
-            }
-        })
-        t = dash.totals(shaped, [])
-        self.assertEqual(t[DONE], 3)
-        self.assertEqual(t[ACTIVE], 1)
-        self.assertEqual(t[TODO], 0)
-        self.assertEqual(t["source"], "features.json")
-
-    def test_does_not_double_count_when_a_commit_is_already_active(self):
-        shaped = phases({
-            "wip": {
-                "status": "in_progress",
-                "commits": [
-                    {"id": "c1", "title": "done", "status": "completed"},
-                    {"id": "c2", "title": "now", "status": "in_progress"},
-                ],
-            }
-        })
-        t = dash.totals(shaped, [])
-        self.assertEqual(t[DONE], 1)
-        self.assertEqual(t[ACTIVE], 1)
-        self.assertEqual(t[TODO], 0)
-
-    def test_completed_phase_with_completed_commits_does_not_inflate_done(self):
-        shaped = phases({
-            "shipped": {
-                "status": "completed",
-                "commits": [
-                    {"id": "c1", "title": "a", "status": "completed"},
-                    {"id": "c2", "title": "b", "status": "completed"},
-                ],
-            }
-        })
-        t = dash.totals(shaped, [])
-        self.assertEqual(t[DONE], 2)
-        self.assertEqual(t[ACTIVE], 0)
-        self.assertEqual(t[TODO], 0)
-
-    def test_completed_phase_with_pending_commit_is_not_done(self):
-        shaped = phases({
-            "inconsistent": {
-                "status": "completed",
-                "commits": [
-                    {"id": "c1", "title": "still open", "status": "pending"},
-                ],
-            }
-        })
-        t = dash.totals(shaped, [])
-        self.assertEqual(t[DONE], 0)
-        self.assertEqual(t[ACTIVE], 0)
-        self.assertEqual(t[TODO], 1)
-
-    def test_empty_pending_phase_is_todo(self):
-        shaped = phases({"next": {"status": "pending", "commits": []}})
-        t = dash.totals(shaped, [])
-        self.assertEqual(t[DONE], 0)
-        self.assertEqual(t[ACTIVE], 0)
-        self.assertEqual(t[TODO], 1)
-
-    def test_empty_completed_phase_is_done(self):
-        shaped = phases({"phase0": {"status": "completed", "commits": []}})
-        t = dash.totals(shaped, [])
-        self.assertEqual(t[DONE], 1)
-        self.assertEqual(t[ACTIVE], 0)
-        self.assertEqual(t[TODO], 0)
-
-    def test_board_items_win_over_features(self):
-        shaped = phases({
-            "gan-layer-separation": {
-                "status": "in_progress",
-                "commits": [{"id": "c1", "title": "a", "status": "completed"}],
-            }
-        })
-        board = [{"id": "1", "title": "card", "state": TODO, "status": "todo"}]
-        t = dash.totals(shaped, board)
-        self.assertEqual(t[DONE], 0)
-        self.assertEqual(t[ACTIVE], 0)
-        self.assertEqual(t[TODO], 1)
-        self.assertEqual(t["source"], "board")
+BOARD = [
+    item("SYC-1", ACTIVE),
+    item("SYC-2", TODO),
+    item("SYC-9", DONE, group="Old"),
+]
 
 
-class OpenPhaseFeatures(unittest.TestCase):
-    def test_all_done_commits_still_lists_an_in_progress_phase(self):
-        shaped = phases({
-            "gan-layer-separation": {
-                "status": "in_progress",
-                "commits": [
-                    {"id": "pr2b", "title": "a", "status": "completed"},
-                ],
-            }
-        })
-        open_phases = dash.open_phase_features(shaped)
-        self.assertEqual(len(open_phases), 1)
-        self.assertEqual(open_phases[0]["name"], "gan-layer-separation")
-        self.assertEqual(
-            [item["state"] for item in open_phases[0]["items"]],
-            [ACTIVE],
-        )
+class Totals(unittest.TestCase):
+    def test_counts_every_item_once(self):
+        t = dash.totals(BOARD, "linear")
+        self.assertEqual((t[DONE], t[ACTIVE], t[TODO]), (1, 1, 1))
 
-    def test_fully_completed_phase_is_omitted(self):
-        shaped = phases({
-            "shipped": {
-                "status": "completed",
-                "commits": [{"id": "c1", "title": "a", "status": "completed"}],
-            }
-        })
-        self.assertEqual(dash.open_phase_features(shaped), [])
+    def test_source_names_the_backend_that_was_read(self):
+        self.assertEqual(dash.totals(BOARD, "linear")["source"], "linear")
+
+    def test_an_unread_board_is_zeros_and_says_so(self):
+        t = dash.totals([], None)
+        self.assertEqual((t[DONE], t[ACTIVE], t[TODO]), (0, 0, 0))
+        self.assertEqual(t["source"], "none")
 
 
-class LiveHarnessFeatures(unittest.TestCase):
-    """Prove the mapping against this repo's features.json, not a guess."""
+class Groups(unittest.TestCase):
+    def test_every_item_lands_in_exactly_one_group(self):
+        groups = dash.groups_from_board(BOARD)
+        self.assertEqual(sum(g["total"] for g in groups), len(BOARD))
 
-    def test_live_in_progress_phases_are_visible_in_totals(self):
-        features = json.loads((ROOT / "features.json").read_text())
-        shaped = phases(features)
-        t = dash.totals(shaped, [])
-        live_active_phases = [
-            name for name, body in features.items()
-            if isinstance(body, dict) and dash.classify(body.get("status", "")) == ACTIVE
-        ]
-        live_active_commits = [
-            c.get("id")
-            for body in features.values() if isinstance(body, dict)
-            for c in body.get("commits") or []
-            if isinstance(c, dict) and dash.classify(c.get("status", "")) == ACTIVE
-        ]
-        if not live_active_phases:
-            self.skipTest("features.json has no in_progress phase to prove against")
-        phases_without_active_commit = [
-            name for name, body in features.items()
-            if isinstance(body, dict)
-            and dash.classify(body.get("status", "")) == ACTIVE
-            and not any(dash.classify(c.get("status", "")) == ACTIVE
-                        for c in body.get("commits") or [] if isinstance(c, dict))
-        ]
-        self.assertEqual(t[ACTIVE], len(live_active_commits) + len(phases_without_active_commit))
+    def test_items_without_a_group_are_not_dropped(self):
+        groups = dash.groups_from_board([item("X-1", TODO, group="")])
+        self.assertEqual([g["name"] for g in groups], ["ungrouped"])
+
+    def test_a_group_with_an_active_item_is_active(self):
+        groups = dash.groups_from_board(BOARD)
+        by_name = {g["name"]: g for g in groups}
+        self.assertEqual(by_name["Tracking"]["state"], ACTIVE)
+
+    def test_a_group_whose_items_are_all_done_is_done(self):
+        groups = {g["name"]: g for g in dash.groups_from_board(BOARD)}
+        self.assertEqual(groups["Old"]["state"], DONE)
+        self.assertEqual(groups["Old"]["percent"], 100)
+
+    def test_a_group_of_only_todo_items_is_todo_not_active(self):
+        groups = dash.groups_from_board([item("A-1", TODO), item("A-2", TODO)])
+        self.assertEqual(groups[0]["state"], TODO)
+
+    def test_unfinished_groups_sort_ahead_of_finished_ones(self):
+        self.assertEqual([g["name"] for g in dash.groups_from_board(BOARD)],
+                         ["Tracking", "Old"])
+
+    def test_open_groups_lists_only_what_is_outstanding(self):
+        openg = dash.open_groups(dash.groups_from_board(BOARD))
+        self.assertEqual([g["name"] for g in openg], ["Tracking"])
+        self.assertEqual([i["id"] for i in openg[0]["items"]], ["SYC-1", "SYC-2"])
+
+    def test_a_finished_group_is_omitted_entirely(self):
+        groups = dash.groups_from_board([item("D-1", DONE)])
+        self.assertEqual(dash.open_groups(groups), [])
+
+
+class Model(unittest.TestCase):
+    RAW = {"tasks": [
+        {"id": "SYC-1", "title": "adapter", "status": "In Progress",
+         "status_type": "started", "group": "Tracking"},
+        {"id": "SYC-9", "title": "shipped", "status": "Done",
+         "status_type": "completed", "group": "Old"},
+    ]}
+
+    def model(self, raw, backend="file"):
+        cfg = {**dash.DEFAULT_CONFIG,
+               "board": dash.merge_board(dash.DEFAULT_CONFIG["board"],
+                                         dash.BOARD_ADAPTERS["file"])}
+        return dash.build_model(raw, backend, ["abc123 a commit"],
+                                "proj", "now", cfg)
+
+    def test_a_payload_becomes_counts_groups_and_items(self):
+        m = self.model(self.RAW)
+        self.assertEqual(m["totals"][ACTIVE], 1)
+        self.assertEqual([g["name"] for g in m["groups"]], ["Tracking", "Old"])
+        self.assertEqual(m["backend"], "file")
+
+    def test_an_unread_board_models_as_empty_rather_than_raising(self):
+        m = self.model(None, backend=None)
+        self.assertEqual(m["board"], [])
+        self.assertEqual(m["groups"], [])
+        self.assertEqual(m["totals"]["source"], "none")
+
+    def test_commits_are_context_not_work_state(self):
+        m = self.model(None, backend=None)
+        self.assertEqual(m["commits"], ["abc123 a commit"])
+        self.assertEqual(m["totals"][DONE], 0)
+
+
+class Renderers(unittest.TestCase):
+    """Every surface must survive an unread board — that is when it matters."""
+
+    def empty_model(self):
+        return dash.build_model(None, None, [], "proj", "now", dash.DEFAULT_CONFIG)
+
+    def full_model(self):
+        cfg = {**dash.DEFAULT_CONFIG,
+               "board": dash.merge_board(dash.DEFAULT_CONFIG["board"],
+                                         dash.BOARD_ADAPTERS["file"])}
+        return dash.build_model(
+            {"tasks": [{"id": "SYC-1", "title": "adapter", "status": "In Progress",
+                        "status_type": "started", "group": "Tracking",
+                        "url": "https://x", "depends_on": []}]},
+            "file", ["abc123 a commit"], "proj", "now", cfg)
+
+    def test_terminal_says_the_board_was_not_read(self):
+        out = dash.render_terminal(self.empty_model())
+        self.assertIn("no board read", out)
+
+    def test_terminal_renders_a_board(self):
+        out = dash.render_terminal(self.full_model())
+        self.assertIn("SYC-1", out)
+        self.assertIn("WORKSTREAMS", out)
+
+    def test_html_renders_both_ways(self):
+        self.assertIn("<!DOCTYPE html>", dash.render_html(self.empty_model()))
+        self.assertIn("SYC-1", dash.render_html(self.full_model()))
+
+    def test_markdown_renders_both_ways(self):
+        self.assertIn("proj", dash.render_markdown(self.empty_model()))
+        self.assertIn("SYC-1", dash.render_markdown(self.full_model()))
+
+    def test_detail_renders_both_ways(self):
+        for model in (self.empty_model(), self.full_model()):
+            detail = dash.build_detail(model, model["commits"])
+            self.assertIn("proj", dash.render_detail_terminal(model, detail))
+            self.assertIn("proj", dash.render_detail_markdown(model, detail))
+
+    def test_portfolio_renders(self):
+        pf = dash.build_portfolio([self.full_model(), self.empty_model()], "now")
+        self.assertEqual(pf["count"], 2)
+        self.assertIn("SYC-1", dash.render_portfolio_markdown(pf))
+        self.assertIn("<!DOCTYPE html>", dash.render_portfolio_html(pf))
 
 
 if __name__ == "__main__":
