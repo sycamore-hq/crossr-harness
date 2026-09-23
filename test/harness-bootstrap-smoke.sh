@@ -34,8 +34,8 @@ for f in features.json features.schema.json progress.md; do
         exit 1
     fi
 done
-if grep -q 'skills = "v1-board"' "$TMPDIR/proc/lockfile.toml" \
-   && grep -q 'loops  = "v1-board-consumers"' "$TMPDIR/proc/lockfile.toml"; then
+if grep -q 'skills = "v1-model-ask"' "$TMPDIR/proc/lockfile.toml" \
+   && grep -q 'loops  = "v1-model-ask-consumers"' "$TMPDIR/proc/lockfile.toml"; then
     echo "✓ process-only wrote process files + pins"
 else
     echo "✗ process-only lockfile pins wrong"
