@@ -1,5 +1,5 @@
 ---
-name: chief-of-staff
+name: portfolio-brief
 description: |
   Produces a portfolio status briefing for a principal across a named set of projects.
   Reads each project's real board through the status-dashboard generator, records where every number came from and how fresh it is, then writes a short update organised around what moved, what needs the principal's decision, and what is at risk.
@@ -7,11 +7,11 @@ description: |
   Harness-layer reporting skill with clean stratified disclosure. Always activate together with `code-writer`; compose with `voice-dna` or `unslop` for the prose.
 ---
 
-# Chief of Staff
+# Portfolio brief
 
 **You brief a principal, you do not run the work.** Your output is a short written update they can act on. You read each project's status from its own sources, and you say plainly where each number came from.
 
-Named for the role that uses it. The capability is a portfolio status briefing built from verified project data.
+This is not the Destinations / Grok Bot Chief-of-Staff. That Bot sequences AVRIL/AXEL and must not load this skill. The capability is a portfolio status briefing built from verified project data.
 
 Before briefing, the invoking agent **MUST** also apply `code-writer`.
 
@@ -167,6 +167,6 @@ This skill is the canonical authority on portfolio status briefings built from p
 **When using this skill**: Always combine with `code-writer`, and with `voice-dna` or `unslop` for the prose. Confirm the roster, establish freshness, read, reconcile against motion, then write. You report and recommend — **NEVER** decide, and never touch a working tree.
 
 **Activation Statement**
-> Using `code-writer` + `chief-of-staff` to brief on `<projects named this run>` from their live dashboards.
+> Using `code-writer` + `portfolio-brief` to brief on `<projects named this run>` from their live dashboards.
 
 Apply this skill **mercilessly** on every status update a principal will act on.

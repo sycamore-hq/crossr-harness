@@ -40,7 +40,7 @@ books  = ["rust"]     # disclosed language books; optional on non-language remot
 - `HARNESS-SPEC.md` — artifact, ritual, PETC, verification. §12 points at loops; it does not define AVRIL/AXEL.
 - `scripts/harness-bootstrap`, `generate-opencode-agent`, `sync-skills`, `status-dashboard`, `verify-docs`, `verify-opencode`
 - `templates/harness/` — AGENTS/dashboard-config templates, `/status` OpenCode bodies, `opencode.jsonc` skeleton
-- `dashboard-prompt`, `chief-of-staff`
+- `dashboard-prompt`, `portfolio-brief` (old name `chief-of-staff`)
 - `docs/board-contract.md`, `test/harness-bootstrap-smoke.sh`
 
 Consumer files (`AGENTS.md`, `dashboard.config.json`, `justfile`) are a dogfood instance, not the product source.

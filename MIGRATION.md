@@ -28,7 +28,7 @@ JSON topology lives in `crossr-loops/graphs/` on `main`. Pin `loops = "v0"` does
 
 ## Copied (split-04)
 
-See the split-04 commit. Product source: spec, scripts, templates minus `/avril` `/axel`, `dashboard-prompt`, `chief-of-staff`, bootstrap smoke.
+See the split-04 commit. Product source: spec, scripts, templates minus `/avril` `/axel`, `dashboard-prompt`, `chief-of-staff` (old name; now `portfolio-brief`), bootstrap smoke.
 
 ## Added here (not a copy)
 
